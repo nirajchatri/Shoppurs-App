@@ -1,0 +1,35 @@
+# Global
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.lock
+*.bak
+*.orig
+
+# Flutter
+**/build/
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.idea/
+**/.vscode/
+**/.android/
+**/.ios/
+**/pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.env
+.env.*.local
+
+# VSCode settings
+.vscode/

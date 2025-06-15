@@ -1,0 +1,551 @@
+{
+  "info": {
+    "name": "Retailer Edit APIs",
+    "description": "Employee and Admin APIs for editing retailer details with photo upload support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "employee_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "retailer_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login as Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"employee@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Employee APIs",
+      "item": [
+        {
+          "name": "Employee - Update Basic Info",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_NAME",
+                  "value": "Updated Retailer Name",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_SHOP_NAME",
+                  "value": "New Shop Name",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_MOBILE_NO",
+                  "value": "9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_EMAIL_ID",
+                  "value": "updated@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_ADDRESS",
+                  "value": "123 Updated Street, New Area",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Employee - Update with Photo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_NAME",
+                  "value": "John's Updated Store",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_MOBILE_NO",
+                  "value": "9123456789",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_EMAIL_ID",
+                  "value": "john.updated@gmail.com",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_ADDRESS",
+                  "value": "Plot 45, Sector 12, Updated City",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_PIN_CODE",
+                  "value": "110020",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_CITY",
+                  "value": "New Delhi",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_STATE",
+                  "value": "Delhi",
+                  "type": "text"
+                },
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Employee - Update Location & GST",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_LAT",
+                  "value": "28.6139",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_LONG",
+                  "value": "77.2090",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_GST_NO",
+                  "value": "07AAACH7409R1ZZ",
+                  "type": "text"
+                },
+                {
+                  "key": "SHOP_OPEN_STATUS",
+                  "value": "open",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin APIs",
+      "item": [
+        {
+          "name": "Admin - Update All Fields",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_CODE",
+                  "value": "RET001",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_TYPE",
+                  "value": "Grocery Store",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_NAME",
+                  "value": "Rajesh Kumar",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_SHOP_NAME",
+                  "value": "Kumar General Store",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_MOBILE_NO",
+                  "value": "9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_ADDRESS",
+                  "value": "Shop No 15, Main Market, Lajpat Nagar",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_PIN_CODE",
+                  "value": "110024",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_EMAIL_ID",
+                  "value": "rajesh@kumarstore.com",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_COUNTRY",
+                  "value": "India",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_STATE",
+                  "value": "Delhi",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_CITY",
+                  "value": "New Delhi",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_GST_NO",
+                  "value": "07AAACH7409R1ZZ",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_LAT",
+                  "value": "28.5355",
+                  "type": "text"
+                },
+                {
+                  "key": "RET_LONG",
+                  "value": "77.2503",
+                  "type": "text"
+                },
+                {
+                  "key": "SHOP_OPEN_STATUS",
+                  "value": "open",
+                  "type": "text"
+                },
+                {
+                  "key": "BARCODE_URL",
+                  "value": "https://example.com/barcode/RET001",
+                  "type": "text"
+                },
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/edit-retailer/{{retailer_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "edit-retailer", "{{retailer_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin - Deactivate Retailer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_DEL_STATUS",
+                  "value": "inactive",
+                  "type": "text"
+                },
+                {
+                  "key": "SHOP_OPEN_STATUS",
+                  "value": "closed",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/edit-retailer/{{retailer_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "edit-retailer", "{{retailer_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Invalid Mobile Number",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_MOBILE_NO",
+                  "value": "123456789",
+                  "type": "text",
+                  "description": "Invalid - only 9 digits"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Email Format",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_EMAIL_ID",
+                  "value": "invalid-email-format",
+                  "type": "text",
+                  "description": "Invalid email format"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid PIN Code",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_PIN_CODE",
+                  "value": "12345",
+                  "type": "text",
+                  "description": "Invalid - only 5 digits"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/{{retailer_id}}/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "{{retailer_id}}", "edit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Retailer Not Found",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "RET_NAME",
+                  "value": "Test Update",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/retailers/99999/edit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "retailers", "99999", "edit"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Utility Requests",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Retailer Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/get-details-single-retailer/{{retailer_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "get-details-single-retailer", "{{retailer_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+} 

@@ -1,0 +1,32 @@
+{
+  "name": "anwarfoodbackend",
+  "version": "1.0.0",
+  "description": "Backend API for Anwar Foods",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "network": "node -e \"const os = require('os'); const interfaces = os.networkInterfaces(); Object.keys(interfaces).forEach(key => { interfaces[key].forEach(iface => { if (iface.family === 'IPv4' && !iface.internal) { console.log('\\n🌐 Your IP Address:', iface.address); console.log('📱 Access from phone: http://' + iface.address + ':3000'); console.log('💻 Local access: http://localhost:3000\\n'); } }); }); \" && node src/app.js",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "multer": "^2.0.1",
+    "mysql2": "^3.2.0",
+    "pdfkit": "^0.17.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
+
