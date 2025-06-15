@@ -17,9 +17,9 @@ require('dotenv').config();
 //   reconnect: true
 // });
 const pool = mysql.createPool({
-  host: '127.0.0.1',
-  user: 'root',
-  password: 'defaultpassword',
+  host: '13.232.194.245',
+  user: 'shoppurs',
+  password: 'Tr@n$Form$34762186627#',
   database: 'shoppurs',
   port: 3306,
   connectionLimit: 5,
