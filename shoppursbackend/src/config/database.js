@@ -35,7 +35,7 @@ const pool = mysql.createPool({
   host: '13.232.194.245',
   user: 'shoppurs_mtsv',
   password: 'Tr@n$Form$34762186627#',
-  database: 'shoppurs',
+  database: 'shoppurs_mtsv',
   port: 3306,
   connectionLimit: 5,
   queueLimit: 0,
