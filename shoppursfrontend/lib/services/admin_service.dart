@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class AdminService {
-  static const String baseUrl = 'http://192.168.29.96:3000';
+  static const String baseUrl = 'http://13.126.68.130:3000';
   final AuthService _authService = AuthService();
 
   Future<Map<String, dynamic>> fetchUsers({

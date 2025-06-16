@@ -30,8 +30,8 @@
 
 ## 🌐 API Configuration
 
-- **Base URL:** http://192.168.29.96:3000
-- **Health Check:** http://192.168.29.96:3000/health
+- **Base URL:** http://13.126.68.130:3000
+- **Health Check:** http://13.126.68.130:3000/health
 - **Timeout:** 30 seconds
 - **CORS:** Configured for web development
 
@@ -66,15 +66,15 @@
 If you encounter issues:
 
 1. **Use Debug APK** for detailed error logs
-2. **Check internet connection** - visit http://192.168.29.96:3000 in browser
+2. **Check internet connection** - visit http://13.126.68.130:3000 in browser
 3. **Clear app data** if needed
 4. **Try different network** (WiFi vs mobile data)
 
 ## 📞 Support
 
-- **API Status:** http://192.168.29.96:3000/health
+- **API Status:** http://13.126.68.130:3000/health
 - **Debug Logs:** Use `adb logcat | grep flutter` with debug APK
-- **Network Test:** Visit http://192.168.29.96:3000 in mobile browser
+- **Network Test:** Visit http://13.126.68.130:3000 in mobile browser
 
 ---
 

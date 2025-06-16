@@ -128,23 +128,48 @@ class _AddProductPageState extends State<AddProductPage> {
       setState(() {
         if (result['success'] == true) {
           final subCategoriesData = result['data'] as List<dynamic>? ?? [];
-          _subCategories = subCategoriesData.map((subCat) => {
-            'SUB_CATEGORY_ID': subCat['SUB_CATEGORY_ID'],
-            'SUB_CATEGORY_NAME': subCat['SUB_CATEGORY_NAME'],
+          print('Raw subcategories data: $subCategoriesData');
+          
+          // Handle both SubCategory objects and raw data
+          _subCategories = subCategoriesData.map((subCat) {
+            if (subCat is Map<String, dynamic>) {
+              // Check if it's a SubCategory object with 'id' field or raw data with 'SUB_CATEGORY_ID'
+              if (subCat.containsKey('id')) {
+                // SubCategory object format
+                return {
+                  'SUB_CATEGORY_ID': subCat['id'],
+                  'SUB_CATEGORY_NAME': subCat['name'],
+                };
+              } else {
+                // Raw data format
+                return {
+                  'SUB_CATEGORY_ID': subCat['SUB_CATEGORY_ID'],
+                  'SUB_CATEGORY_NAME': subCat['SUB_CATEGORY_NAME'],
+                };
+              }
+            } else {
+              // If it's a SubCategory object
+              return {
+                'SUB_CATEGORY_ID': subCat.id,
+                'SUB_CATEGORY_NAME': subCat.name,
+              };
+            }
           }).toList();
           print('Mapped subcategories: $_subCategories');
         } else {
           _subCategories = [];
           _subCategoriesError = result['message'] ?? 'Failed to load subcategories';
+          print('Error from API: ${result['message']}');
         }
         _isLoadingSubCategories = false;
       });
     } catch (e) {
       print('Error loading subcategories: $e');
+      print('Error stack trace: ${StackTrace.current}');
       if (!mounted) return;
       setState(() {
         _subCategories = [];
-        _subCategoriesError = e.toString();
+        _subCategoriesError = 'Error loading subcategories: ${e.toString()}';
         _isLoadingSubCategories = false;
       });
     }
@@ -1224,12 +1249,25 @@ class _AddProductPageState extends State<AddProductPage> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
                             items: _categories.map((category) {
-                              final id = category['CATEGORY_ID'];
-                              final name = category['CATEGORY_NAME'] ?? 'Unknown';
-                              return DropdownMenuItem<int>(
-                                value: id,
-                                child: Text(name),
-                              );
+                              try {
+                                final id = category['CATEGORY_ID'];
+                                final name = category['CATEGORY_NAME'];
+                                
+                                // Ensure proper type conversion
+                                final intId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                final stringName = name?.toString() ?? 'Unknown';
+                                
+                                return DropdownMenuItem<int>(
+                                  value: intId,
+                                  child: Text(stringName),
+                                );
+                              } catch (e) {
+                                print('Error creating category dropdown item: $e for $category');
+                                return DropdownMenuItem<int>(
+                                  value: 0,
+                                  child: Text('Error: ${category.toString()}'),
+                                );
+                              }
                             }).toList(),
                             onChanged: (value) async {
                               if (value != null) {
@@ -1269,13 +1307,27 @@ class _AddProductPageState extends State<AddProductPage> {
                               ),
                               items: _subCategories.map((subCategory) {
                                 print('Creating dropdown item for subcategory: $subCategory');
-                                final id = subCategory['SUB_CATEGORY_ID'] as int;
-                                final name = subCategory['SUB_CATEGORY_NAME'] as String;
-                                print('Subcategory ID: $id, Name: $name');
-                                return DropdownMenuItem<int>(
-                                  value: id,
-                                  child: Text(name),
-                                );
+                                try {
+                                  final id = subCategory['SUB_CATEGORY_ID'];
+                                  final name = subCategory['SUB_CATEGORY_NAME'];
+                                  
+                                  // Ensure proper type conversion
+                                  final intId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                  final stringName = name?.toString() ?? 'Unknown';
+                                  
+                                  print('Subcategory ID: $intId (${intId.runtimeType}), Name: $stringName');
+                                  
+                                  return DropdownMenuItem<int>(
+                                    value: intId,
+                                    child: Text(stringName),
+                                  );
+                                } catch (e) {
+                                  print('Error creating dropdown item: $e for $subCategory');
+                                  return DropdownMenuItem<int>(
+                                    value: 0,
+                                    child: Text('Error: ${subCategory.toString()}'),
+                                  );
+                                }
                               }).toList(),
                               onChanged: _selectedCategoryId == null ? null : (int? value) {
                                 print('Selected subcategory ID: $value');

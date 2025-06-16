@@ -7,7 +7,7 @@ class ApiConfig {
   
   // Environment-specific URLs
   static const Map<Environment, String> _baseUrls = {
-    Environment.development: 'http://192.168.29.96:3000',
+    Environment.development: 'http://13.126.68.130:3000',
     Environment.staging: 'https://staging-api.yourapp.com',
     Environment.production: 'https://api.yourapp.com',
     Environment.local: 'http://localhost:3000',

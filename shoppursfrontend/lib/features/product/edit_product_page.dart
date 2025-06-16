@@ -219,9 +219,32 @@ class _EditProductPageState extends State<EditProductPage> {
         setState(() {
           if (result['success'] == true) {
             final subCategoriesData = result['data'] as List<dynamic>? ?? [];
-            _subCategories = subCategoriesData.map((subCat) => {
-              'SUB_CATEGORY_ID': subCat['SUB_CATEGORY_ID'],
-              'SUB_CATEGORY_NAME': subCat['SUB_CATEGORY_NAME'],
+            print('Raw subcategories data: $subCategoriesData');
+            
+            // Handle both SubCategory objects and raw data
+            _subCategories = subCategoriesData.map((subCat) {
+              if (subCat is Map<String, dynamic>) {
+                // Check if it's a SubCategory object with 'id' field or raw data with 'SUB_CATEGORY_ID'
+                if (subCat.containsKey('id')) {
+                  // SubCategory object format
+                  return {
+                    'SUB_CATEGORY_ID': subCat['id'],
+                    'SUB_CATEGORY_NAME': subCat['name'],
+                  };
+                } else {
+                  // Raw data format
+                  return {
+                    'SUB_CATEGORY_ID': subCat['SUB_CATEGORY_ID'],
+                    'SUB_CATEGORY_NAME': subCat['SUB_CATEGORY_NAME'],
+                  };
+                }
+              } else {
+                // If it's a SubCategory object
+                return {
+                  'SUB_CATEGORY_ID': subCat.id,
+                  'SUB_CATEGORY_NAME': subCat.name,
+                };
+              }
             }).toList();
             
             // Only set subcategory ID during initial load
@@ -231,19 +254,21 @@ class _EditProductPageState extends State<EditProductPage> {
             print('Updated subcategories in state: $_subCategories');
           } else {
             _subCategories = [];
+            print('Error from API: ${result['message']}');
           }
           _isLoadingSubcategories = false;
         });
       }
     } catch (e) {
       print('Error in _loadSubCategories: $e');
+      print('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         setState(() {
           _isLoadingSubcategories = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to load subcategories. Please try again.'),
+            content: Text('Failed to load subcategories: ${e.toString()}'),
             backgroundColor: Colors.red,
             action: SnackBarAction(
               label: 'Retry',
@@ -1411,11 +1436,24 @@ class _EditProductPageState extends State<EditProductPage> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                             ),
                             items: _categories.map((category) {
-                              print('Creating category dropdown item: id=${category.id}, name=${category.name}');
-                              return DropdownMenuItem<int>(
-                                value: category.id,
-                                child: Text(category.name),
-                              );
+                              try {
+                                print('Creating category dropdown item: id=${category.id}, name=${category.name}');
+                                
+                                // Ensure proper type conversion
+                                final intId = category.id is int ? category.id : int.tryParse(category.id.toString()) ?? 0;
+                                final stringName = category.name?.toString() ?? 'Unknown';
+                                
+                                return DropdownMenuItem<int>(
+                                  value: intId,
+                                  child: Text(stringName),
+                                );
+                              } catch (e) {
+                                print('Error creating category dropdown item: $e for $category');
+                                return DropdownMenuItem<int>(
+                                  value: 0,
+                                  child: Text('Error: ${category.toString()}'),
+                                );
+                              }
                             }).toList(),
                             onChanged: (value) async {
                               print('Category selected: $value');
@@ -1446,15 +1484,30 @@ class _EditProductPageState extends State<EditProductPage> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 enabled: _selectedCategoryId != null,
                               ),
-                              items: _subCategories.map((subCategory) {
-                                print('Creating subcategory dropdown item: $subCategory');
-                                final id = subCategory['SUB_CATEGORY_ID'] as int;
-                                final name = subCategory['SUB_CATEGORY_NAME'] as String;
+                                                          items: _subCategories.map((subCategory) {
+                              print('Creating subcategory dropdown item: $subCategory');
+                              try {
+                                final id = subCategory['SUB_CATEGORY_ID'];
+                                final name = subCategory['SUB_CATEGORY_NAME'];
+                                
+                                // Ensure proper type conversion
+                                final intId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                final stringName = name?.toString() ?? 'Unknown';
+                                
+                                print('Subcategory ID: $intId (${intId.runtimeType}), Name: $stringName');
+                                
                                 return DropdownMenuItem<int>(
-                                  value: id,
-                                  child: Text(name),
+                                  value: intId,
+                                  child: Text(stringName),
                                 );
-                              }).toList(),
+                              } catch (e) {
+                                print('Error creating dropdown item: $e for $subCategory');
+                                return DropdownMenuItem<int>(
+                                  value: 0,
+                                  child: Text('Error: ${subCategory.toString()}'),
+                                );
+                              }
+                            }).toList(),
                               onChanged: _selectedCategoryId == null ? null : (value) {
                                 print('Subcategory selected: $value');
                                 if (value != null) {
