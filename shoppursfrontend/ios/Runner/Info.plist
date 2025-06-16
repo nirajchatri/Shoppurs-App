@@ -51,5 +51,9 @@
 	<string>This app needs access to your camera to take delivery confirmation photos.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to microphone when you record a video</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to verify your account and provide location-based services.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to verify your account and provide location-based services.</string>
 </dict>
 </plist>

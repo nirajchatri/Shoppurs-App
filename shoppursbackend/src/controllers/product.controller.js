@@ -4,7 +4,7 @@ const getProductList = async (req, res) => {
   try {
     const [products] = await db.promise().query(`
       SELECT p.*, c.CATEGORY_NAME, sc.SUB_CATEGORY_NAME 
-      FROM product p
+      FROM Product_Master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       WHERE p.DEL_STATUS IS NULL OR p.DEL_STATUS != 'Y'
@@ -31,7 +31,7 @@ const getProductDetails = async (req, res) => {
     const [products] = await db.promise().query(`
       SELECT p.*, c.CATEGORY_NAME, sc.SUB_CATEGORY_NAME,
       GROUP_CONCAT(pb.PRDB_BARCODE) as barcodes
-      FROM product p
+      FROM Product_Master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       LEFT JOIN product_barcodes pb ON p.PROD_ID = pb.PRDB_PROD_ID
@@ -92,7 +92,7 @@ const getProductsUnderCategory = async (req, res) => {
     const [products] = await db.promise().query(`
       SELECT p.*, c.CATEGORY_NAME, sc.SUB_CATEGORY_NAME,
       GROUP_CONCAT(DISTINCT pu.PU_ID, ':', pu.PU_PROD_UNIT, ':', pu.PU_PROD_UNIT_VALUE, ':', pu.PU_PROD_RATE) as units
-      FROM product p
+      FROM Product_Master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       LEFT JOIN product_unit pu ON p.PROD_ID = pu.PU_PROD_ID
@@ -151,7 +151,7 @@ const getProductsUnderSubCategory = async (req, res) => {
     const [products] = await db.promise().query(`
       SELECT p.*, c.CATEGORY_NAME, sc.SUB_CATEGORY_NAME,
       GROUP_CONCAT(DISTINCT pu.PU_ID, ':', pu.PU_PROD_UNIT, ':', pu.PU_PROD_UNIT_VALUE, ':', pu.PU_PROD_RATE) as units
-      FROM product p
+      FROM Product_Master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       LEFT JOIN product_unit pu ON p.PROD_ID = pu.PU_PROD_ID
@@ -197,7 +197,7 @@ const getProductUnits = async (req, res) => {
 
     // Check if product exists
     const [products] = await db.promise().query(
-      'SELECT PROD_ID, PROD_NAME FROM product WHERE PROD_ID = ?',
+      'SELECT PROD_ID, PROD_NAME FROM Product_Master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -244,7 +244,7 @@ const searchProducts = async (req, res) => {
     let baseQuery = `
       SELECT p.*, c.CATEGORY_NAME, sc.SUB_CATEGORY_NAME,
       GROUP_CONCAT(DISTINCT pu.PU_ID, ':', pu.PU_PROD_UNIT, ':', pu.PU_PROD_UNIT_VALUE, ':', pu.PU_PROD_RATE) as units
-      FROM product p
+      FROM Product_Master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       LEFT JOIN product_unit pu ON p.PROD_ID = pu.PU_PROD_ID
@@ -343,7 +343,7 @@ const getProductIdByBarcode = async (req, res) => {
 
     // Verify product exists and is not deleted
     const [products] = await db.promise().query(
-      'SELECT PROD_ID, PROD_NAME FROM product WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT PROD_ID, PROD_NAME FROM Product_Master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 

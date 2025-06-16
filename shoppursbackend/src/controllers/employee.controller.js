@@ -8,12 +8,26 @@ const fetchOrders = async (req, res) => {
 
     let query = `
       SELECT 
-        o.*,
-        u.USERNAME as CUSTOMER_NAME,
-        u.MOBILE as CUSTOMER_MOBILE,
+        co.CO_ID as ORDER_ID,
+        co.CO_NO as ORDER_NUMBER,
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL,
+        co.CO_STATUS as ORDER_STATUS,
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+        co.CO_PINCODE as DELIVERY_PINCODE,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+        co.CO_DELIVERY_NOTE as ORDER_NOTES,
+        co.CO_IMAGE as PAYMENT_IMAGE,
+        co.CREATED_DATE,
+        co.UPDATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
         u.EMAIL as CUSTOMER_EMAIL
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
+      FROM cust_order co
+      LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
       WHERE 1=1
     `;
     
@@ -21,17 +35,17 @@ const fetchOrders = async (req, res) => {
 
     // Add status filter if provided
     if (status) {
-      query += ` AND o.ORDER_STATUS = ?`;
+      query += ` AND co.CO_STATUS = ?`;
       queryParams.push(status);
     }
 
     // Add sorting and pagination
-    query += ` ORDER BY o.CREATED_DATE DESC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY co.CREATED_DATE DESC LIMIT ? OFFSET ?`;
     queryParams.push(parseInt(limit), offset);
 
     // Get total count for pagination
     const [countResult] = await db.promise().query(
-      `SELECT COUNT(*) as total FROM orders o WHERE 1=1 ${status ? 'AND o.ORDER_STATUS = ?' : ''}`,
+      `SELECT COUNT(*) as total FROM cust_order co WHERE 1=1 ${status ? 'AND co.CO_STATUS = ?' : ''}`,
       status ? [status] : []
     );
 
@@ -74,31 +88,44 @@ const searchOrders = async (req, res) => {
 
     const searchQuery = `
       SELECT 
-        o.*,
-        u.USERNAME as CUSTOMER_NAME,
-        u.MOBILE as CUSTOMER_MOBILE,
+        co.CO_ID as ORDER_ID,
+        co.CO_NO as ORDER_NUMBER,
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL,
+        co.CO_STATUS as ORDER_STATUS,
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+        co.CO_PINCODE as DELIVERY_PINCODE,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+        co.CO_DELIVERY_NOTE as ORDER_NOTES,
+        co.CO_IMAGE as PAYMENT_IMAGE,
+        co.CREATED_DATE,
+        co.UPDATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
         u.EMAIL as CUSTOMER_EMAIL
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
-      WHERE o.ORDER_NUMBER LIKE ? OR u.MOBILE LIKE ?
+      FROM cust_order co
+      LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+      WHERE co.CO_NO LIKE ? OR co.CO_CUST_MOBILE LIKE ?
       ORDER BY 
         CASE 
-          WHEN o.ORDER_NUMBER = ? THEN 1
-          WHEN u.MOBILE = ? THEN 1
-          WHEN o.ORDER_NUMBER LIKE ? THEN 2
-          WHEN u.MOBILE LIKE ? THEN 2
+          WHEN co.CO_NO = ? THEN 1
+          WHEN co.CO_CUST_MOBILE = ? THEN 1
+          WHEN co.CO_NO LIKE ? THEN 2
+          WHEN co.CO_CUST_MOBILE LIKE ? THEN 2
           ELSE 3
         END,
-        o.CREATED_DATE DESC
+        co.CREATED_DATE DESC
       LIMIT ? OFFSET ?
     `;
 
     // Get total count for pagination
     const [countResult] = await db.promise().query(
       `SELECT COUNT(*) as total 
-       FROM orders o 
-       JOIN user_info u ON o.USER_ID = u.USER_ID 
-       WHERE o.ORDER_NUMBER LIKE ? OR u.MOBILE LIKE ?`,
+       FROM cust_order co 
+       WHERE co.CO_NO LIKE ? OR co.CO_CUST_MOBILE LIKE ?`,
       [`%${query}%`, `%${query}%`]
     );
 
@@ -141,13 +168,27 @@ const getOrderDetails = async (req, res) => {
 
     const [orders] = await db.promise().query(
       `SELECT 
-        o.*,
-        u.USERNAME as CUSTOMER_NAME,
-        u.MOBILE as CUSTOMER_MOBILE,
+        co.CO_ID as ORDER_ID,
+        co.CO_NO as ORDER_NUMBER,
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL,
+        co.CO_STATUS as ORDER_STATUS,
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+        co.CO_PINCODE as DELIVERY_PINCODE,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+        co.CO_DELIVERY_NOTE as ORDER_NOTES,
+        co.CO_IMAGE as PAYMENT_IMAGE,
+        co.CREATED_DATE,
+        co.UPDATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
         u.EMAIL as CUSTOMER_EMAIL
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
-      WHERE o.ORDER_ID = ?`,
+      FROM cust_order co
+      LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+      WHERE co.CO_ID = ?`,
       [orderId]
     );
 
@@ -161,15 +202,19 @@ const getOrderDetails = async (req, res) => {
     // Get order items if needed
     const [orderItems] = await db.promise().query(
       `SELECT 
-        oi.*,
-        p.PROD_NAME,
-        p.PROD_IMAGE_1,
-        pu.PU_PROD_UNIT,
+        cod.COD_ID as ORDER_ITEM_ID,
+        cod.COD_CO_ID as ORDER_ID,
+        cod.PROD_ID,
+        cod.COD_QTY as QUANTITY,
+        cod.PROD_SP as UNIT_PRICE,
+        (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+        cod.PROD_NAME,
+        cod.PROD_IMAGE_1,
+        cod.PROD_UNIT as PU_PROD_UNIT,
         pu.PU_PROD_UNIT_VALUE
-      FROM order_items oi
-      JOIN product p ON oi.PROD_ID = p.PROD_ID
-      LEFT JOIN product_unit pu ON oi.UNIT_ID = pu.PU_ID
-      WHERE oi.ORDER_ID = ?`,
+      FROM cust_order_details cod
+      LEFT JOIN product_unit pu ON cod.PROD_UNIT = pu.PU_PROD_UNIT
+      WHERE cod.COD_CO_ID = ?`,
       [orderId]
     );
 
@@ -194,7 +239,8 @@ const getOrderDetails = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status } = req.body;
+    const { status, long, lat } = req.body;
+    const employeeUserId = req.user.USER_ID; // Get employee user ID from JWT token
 
     if (!status) {
       return res.status(400).json({
@@ -214,7 +260,7 @@ const updateOrderStatus = async (req, res) => {
 
     // First check if order exists
     const [orders] = await db.promise().query(
-      'SELECT ORDER_ID, ORDER_STATUS, PAYMENT_IMAGE FROM orders WHERE ORDER_ID = ?',
+      'SELECT CO_ID, CO_STATUS, CO_IMAGE FROM cust_order WHERE CO_ID = ?',
       [orderId]
     );
 
@@ -226,7 +272,7 @@ const updateOrderStatus = async (req, res) => {
     }
 
     // Don't allow status change if order is already cancelled or delivered
-    const currentStatus = orders[0].ORDER_STATUS.toLowerCase();
+    const currentStatus = orders[0].CO_STATUS.toLowerCase();
     if (currentStatus === 'cancelled' || currentStatus === 'delivered') {
       return res.status(400).json({
         success: false,
@@ -235,34 +281,65 @@ const updateOrderStatus = async (req, res) => {
     }
 
     // Get uploaded image filename if present
-    const paymentImage = req.uploadedFile ? req.uploadedFile.filename : orders[0].PAYMENT_IMAGE;
+    const paymentImage = req.uploadedFile ? req.uploadedFile.filename : orders[0].CO_IMAGE;
 
-    // Update order status and payment image
+    // Build dynamic update query based on provided fields
+    let updateFields = [
+      'CO_STATUS = ?',
+      'CO_IMAGE = ?',
+      'PAYMENT_IMAGE = ?',
+      'CO_DELIVER_BY = ?',
+      'UPDATED_DATE = NOW()'
+    ];
+    let updateValues = [status.toLowerCase(), paymentImage, paymentImage, employeeUserId];
+
+    // Add delivery coordinates if provided
+    if (lat !== undefined) {
+      updateFields.push('CO_DELIVERY_LAT = ?');
+      updateValues.push(lat);
+    }
+    if (long !== undefined) {
+      updateFields.push('CO_DELIVERY_LONG = ?');
+      updateValues.push(long);
+    }
+
+    // Add orderId for WHERE clause
+    updateValues.push(orderId);
+
+    // Update order status, payment image, delivery person, and coordinates
     await db.promise().query(
-      `UPDATE orders 
-       SET ORDER_STATUS = ?, 
-           PAYMENT_IMAGE = ?,
-           UPDATED_DATE = NOW()
-       WHERE ORDER_ID = ?`,
-      [status.toLowerCase(), paymentImage, orderId]
+      `UPDATE cust_order 
+       SET ${updateFields.join(', ')}
+       WHERE CO_ID = ?`,
+      updateValues
     );
 
     // If status is delivered, generate invoice PDF and QR code, and insert into invoice_master and invoice_detail
     if (status.toLowerCase() === 'delivered') {
       const [orderDetails] = await db.promise().query(
-        `SELECT o.*, u.USERNAME, u.MOBILE, u.EMAIL, u.ADDRESS as USER_ADDRESS, u.CITY, u.PROVINCE, u.ZIP
-         FROM orders o
-         JOIN user_info u ON o.USER_ID = u.USER_ID
-         WHERE o.ORDER_ID = ?`,
+        `SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+                co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+                co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+                co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+                co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+                co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE,
+                co.CO_CUST_NAME as USERNAME, co.CO_CUST_MOBILE as MOBILE,
+                u.EMAIL, u.ADDRESS as USER_ADDRESS, u.CITY, u.PROVINCE, u.ZIP
+         FROM cust_order co
+         LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+         WHERE co.CO_ID = ?`,
         [orderId]
       );
       const order = orderDetails[0];
       const [orderItems] = await db.promise().query(
-        `SELECT oi.*, p.PROD_NAME, p.PROD_CODE, p.PROD_HSN_CODE, p.PROD_MRP, p.PROD_SP, p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, pu.PU_PROD_UNIT
-         FROM order_items oi
-         JOIN product p ON oi.PROD_ID = p.PROD_ID
-         JOIN product_unit pu ON oi.UNIT_ID = pu.PU_ID
-         WHERE oi.ORDER_ID = ?`,
+        `SELECT cod.COD_ID as ORDER_ITEM_ID, cod.COD_CO_ID as ORDER_ID,
+                cod.PROD_ID, cod.COD_QTY as QUANTITY, cod.PROD_SP as UNIT_PRICE,
+                (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+                cod.PROD_NAME, cod.PROD_CODE, cod.PROD_MRP as PROD_MRP,
+                cod.PROD_SP, cod.PROD_IMAGE_1, cod.PROD_IMAGE_2, cod.PROD_IMAGE_3,
+                cod.PROD_UNIT as PU_PROD_UNIT, '' as PROD_HSN_CODE
+         FROM cust_order_details cod
+         WHERE cod.COD_CO_ID = ?`,
         [orderId]
       );
       // Generate invoice number (e.g., INV + orderId)
@@ -306,10 +383,16 @@ const updateOrderStatus = async (req, res) => {
           [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
         );
       }
-      // Update the orders table with the invoice URL
+      // Update the cust_order table with the invoice URL
       await db.promise().query(
-        'UPDATE orders SET INVOICE_URL = ? WHERE ORDER_ID = ?',
+        'UPDATE cust_order SET INVOICE_URL = ? WHERE CO_ID = ?',
         [`/uploads/invoice/${invoiceNumber}.pdf`, orderId]
+      );
+
+      // Update payment status in cust_payment table
+      await db.promise().query(
+        'UPDATE cust_payment SET PAYMENT_STATUS = ? WHERE PAYMENT_PAYMENT_INVOICE_NO = ? AND PAYMENT_STATUS IN ("pending", "cod")',
+        ['done', order.ORDER_NUMBER]
       );
     }
 
@@ -320,7 +403,12 @@ const updateOrderStatus = async (req, res) => {
         orderId,
         oldStatus: currentStatus,
         newStatus: status.toLowerCase(),
+        deliveredBy: employeeUserId,
         paymentImage: paymentImage ? `/uploads/orders/${paymentImage}` : null,
+        deliveryCoordinates: {
+          latitude: lat || null,
+          longitude: long || null
+        },
         updatedAt: new Date()
       }
     });
@@ -373,10 +461,12 @@ const placeOrderForCustomer = async (req, res) => {
 
     // Get employee's cart items (employee who is logged in)
     const [cartItems] = await connection.query(`
-      SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP,
+      SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP, p.PROD_CODE,
+             p.PROD_DESC, p.PROD_CGST, p.PROD_IGST, p.PROD_SGST,
+             p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, p.IS_BARCODE_AVAILABLE,
              pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
       FROM cart c
-      JOIN product p ON c.PROD_ID = p.PROD_ID
+      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.USER_ID = ?
     `, [employeeUserId]);
@@ -424,35 +514,54 @@ const placeOrderForCustomer = async (req, res) => {
     // Generate order number
     const orderNumber = 'EMP-ORD-' + Date.now();
 
-    // Create order with retailer as USER_ID and force payment method to COD only
+    // Get retailer and customer details
+    const [retailerDetails] = await connection.query(`
+      SELECT RET_ID, RET_NAME, RET_MOBILE_NO FROM retailer_info 
+      WHERE RET_MOBILE_NO = ? AND RET_DEL_STATUS != 'Y'
+    `, [phoneNumber]);
+
+    const retailerInfo = retailerDetails.length > 0 ? retailerDetails[0] : null;
+    const totalQuantity = cartItems.reduce((total, item) => total + item.QUANTITY, 0);
+    const transactionId = 'EMP-TXN-' + Date.now();
+
+    // Create order in cust_order table
     const [orderResult] = await connection.query(`
-      INSERT INTO orders (
-        ORDER_NUMBER, USER_ID, ORDER_TOTAL, ORDER_STATUS, 
-        DELIVERY_ADDRESS, DELIVERY_CITY, DELIVERY_STATE, 
-        DELIVERY_COUNTRY, DELIVERY_PINCODE, DELIVERY_LANDMARK,
-        PAYMENT_METHOD, ORDER_NOTES, CREATED_BY
-      ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO cust_order (
+        CO_NO, CO_TRANS_ID, CO_DATE, CO_DELIVERY_NOTE, CO_DELIVERY_MODE, 
+        CO_PAYMENT_MODE, CO_RET_ID, CO_CUST_CODE, CO_CUST_NAME, 
+        CO_CUST_MOBILE, CO_DELIVERY_ADDRESS, CO_DELIVERY_COUNTRY, 
+        CO_DELIVERY_STATE, CO_DELIVERY_CITY, CO_PINCODE, 
+        CO_TOTAL_QTY, CO_TOTAL_AMT, CO_PAYMENT_STATUS, CO_TYPE, 
+        CO_STATUS, CREATED_BY, CREATED_DATE
+      ) VALUES (?, ?, NOW(), ?, 'delivery', 'cod', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'employee', 'pending', ?, NOW())
     `, [
-      orderNumber, retailerUserId, orderTotal, 
-      orderAddress.ADDRESS, orderAddress.CITY, orderAddress.STATE,
-      orderAddress.COUNTRY, orderAddress.PINCODE, orderAddress.LANDMARK,
-      'cod', // Force COD payment method
+      orderNumber, transactionId, 
       notes || 'Order placed by employee on behalf of retailer/customer',
-      employeeUserId // CREATED_BY - Employee's USER_ID who placed the order
+      retailerInfo ? retailerInfo.RET_ID : null,
+      phoneNumber, retailerInfo ? retailerInfo.RET_NAME : 'Customer',
+      phoneNumber, orderAddress.ADDRESS, orderAddress.COUNTRY, 
+      orderAddress.STATE, orderAddress.CITY, orderAddress.PINCODE,
+      totalQuantity, orderTotal, employeeUserId
     ]);
 
     const orderId = orderResult.insertId;
 
-    // Create order items
+    // Create order items in cust_order_details table
     for (const item of cartItems) {
       await connection.query(`
-        INSERT INTO order_items (
-          ORDER_ID, PROD_ID, UNIT_ID, QUANTITY, 
-          UNIT_PRICE, TOTAL_PRICE, CREATED_DATE
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO cust_order_details (
+          COD_CO_ID, COD_QTY, PROD_NAME, PROD_BARCODE, PROD_DESC, 
+          PROD_MRP, PROD_SP, PROD_CGST, PROD_IGST, PROD_SGST,
+          PROD_IMAGE_1, PROD_IMAGE_2, PROD_IMAGE_3, PROD_CODE, 
+          PROD_ID, PROD_UNIT, IS_BARCODE_AVAILABLE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
-        orderId, item.PROD_ID, item.UNIT_ID, item.QUANTITY,
-        item.PU_PROD_RATE, (item.PU_PROD_RATE * item.QUANTITY)
+        orderId, item.QUANTITY, item.PROD_NAME || '', '', // Empty barcode - PROD_BARCODE field doesn't exist in product table
+        item.PROD_DESC || '', item.PROD_MRP || 0, item.PU_PROD_RATE,
+        item.PROD_CGST || 0, item.PROD_IGST || 0, item.PROD_SGST || 0, // Use actual GST values from product
+        item.PROD_IMAGE_1 || '', item.PROD_IMAGE_2 || '', item.PROD_IMAGE_3 || '',
+        item.PROD_CODE || '', item.PROD_ID, item.PU_PROD_UNIT,
+        item.IS_BARCODE_AVAILABLE || 0 // Use actual IS_BARCODE_AVAILABLE from product
       ]);
     }
 
@@ -491,19 +600,29 @@ const placeOrderForCustomer = async (req, res) => {
 
     // Generate invoice immediately after order creation
     const [orderDetails] = await connection.query(
-      `SELECT o.*, u.USERNAME, u.MOBILE, u.EMAIL, u.ADDRESS as USER_ADDRESS, u.CITY, u.PROVINCE, u.ZIP
-       FROM orders o
-       JOIN user_info u ON o.USER_ID = u.USER_ID
-       WHERE o.ORDER_ID = ?`,
+      `SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+              co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+              co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+              co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+              co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+              co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE,
+              co.CO_CUST_NAME as USERNAME, co.CO_CUST_MOBILE as MOBILE,
+              u.EMAIL, u.ADDRESS as USER_ADDRESS, u.CITY, u.PROVINCE, u.ZIP
+       FROM cust_order co
+       LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+       WHERE co.CO_ID = ?`,
       [orderId]
     );
     const order = orderDetails[0];
     const [orderItems] = await connection.query(
-      `SELECT oi.*, p.PROD_NAME, p.PROD_CODE, p.PROD_HSN_CODE, p.PROD_MRP, p.PROD_SP, p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, pu.PU_PROD_UNIT
-       FROM order_items oi
-       JOIN product p ON oi.PROD_ID = p.PROD_ID
-       JOIN product_unit pu ON oi.UNIT_ID = pu.PU_ID
-       WHERE oi.ORDER_ID = ?`,
+      `SELECT cod.COD_ID as ORDER_ITEM_ID, cod.COD_CO_ID as ORDER_ID,
+              cod.PROD_ID, cod.COD_QTY as QUANTITY, cod.PROD_SP as UNIT_PRICE,
+              (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+              cod.PROD_NAME, cod.PROD_CODE, cod.PROD_MRP as PROD_MRP,
+              cod.PROD_SP, cod.PROD_IMAGE_1, cod.PROD_IMAGE_2, cod.PROD_IMAGE_3,
+              cod.PROD_UNIT as PU_PROD_UNIT, '' as PROD_HSN_CODE
+       FROM cust_order_details cod
+       WHERE cod.COD_CO_ID = ?`,
       [orderId]
     );
     // Generate invoice number
@@ -547,9 +666,51 @@ const placeOrderForCustomer = async (req, res) => {
         [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
       );
     }
-    // Update the orders table with the invoice URL
+         // Create payment record in cust_payment table
+     await connection.query(`
+       INSERT INTO cust_payment (
+         PAYMENT_TRANSACTION_ID, PAYMENT_TRANSACTION_TYPE, PAYMENT_MERCHANT_ID,
+         PAYMENT_AMOUNT, PAYMENT_PAYMENT_METHOD, PAYMENT_PAYMENT_MODE, PAYMENT_STATUS, 
+         PAYMENT_STATUS_MESSAGE, PAYMENT_RESPONSE_CODE, PAYMENT_RESPONSE_MESSAGE,
+         PAYMENT_PAYMENT_DATE, PAYMENT_PAYMENT_INVOICE_NO, PAYMENT_CURRENCY_CODE,
+         PAYMENT_DELIVERY_NAME, PAYMENT_DELIVERY_COUNTRY, PAYMENT_DELIVERY_STATE, 
+         PAYMENT_DELIVERY_CITY, PAYMENT_DELIVERY_ZIP, PAYMENT_BILLING_NAME,
+         PAYMENT_BILLING_CITY, PAYMENT_BILLING_ADDRESS, PAYMENT_BILLING_EMAIL,
+         PAYMENT_BILLING_COUNTRY, PAYMENT_BILLING_STATE, PAYMENT_BILLING_ZIP,
+         CREATED_BY, UPDATED_BY, CREATED_DATE, UPDATED_DATE
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+     `, [
+       transactionId, // PAYMENT_TRANSACTION_ID
+       'employee_order', // PAYMENT_TRANSACTION_TYPE
+       'ANWAR_FOOD_001', // PAYMENT_MERCHANT_ID (default merchant ID)
+       orderTotal, // PAYMENT_AMOUNT
+       'cod', // PAYMENT_PAYMENT_METHOD
+       'cod', // PAYMENT_PAYMENT_MODE
+       'cod', // PAYMENT_STATUS
+       'Order placed by employee on behalf of customer', // PAYMENT_STATUS_MESSAGE
+       '300', // PAYMENT_RESPONSE_CODE (300 = employee order)
+       'Employee order created successfully', // PAYMENT_RESPONSE_MESSAGE
+       orderNumber, // PAYMENT_PAYMENT_INVOICE_NO
+       'INR', // PAYMENT_CURRENCY_CODE
+       retailer.USERNAME, // PAYMENT_DELIVERY_NAME
+       orderAddress.COUNTRY, // PAYMENT_DELIVERY_COUNTRY
+       orderAddress.STATE, // PAYMENT_DELIVERY_STATE
+       orderAddress.CITY, // PAYMENT_DELIVERY_CITY
+       orderAddress.PINCODE, // PAYMENT_DELIVERY_ZIP
+       retailer.USERNAME, // PAYMENT_BILLING_NAME
+       orderAddress.CITY, // PAYMENT_BILLING_CITY
+       orderAddress.ADDRESS, // PAYMENT_BILLING_ADDRESS
+       retailer.EMAIL || '', // PAYMENT_BILLING_EMAIL
+       orderAddress.COUNTRY, // PAYMENT_BILLING_COUNTRY
+       orderAddress.STATE, // PAYMENT_BILLING_STATE
+       orderAddress.PINCODE, // PAYMENT_BILLING_ZIP
+       employeeUserId, // CREATED_BY
+       employeeUserId // UPDATED_BY
+     ]);
+
+    // Update the cust_order table with the invoice URL
     await connection.query(
-      'UPDATE orders SET INVOICE_URL = ? WHERE ORDER_ID = ?',
+      'UPDATE cust_order SET INVOICE_URL = ? WHERE CO_ID = ?',
       [`/uploads/invoice/${invoiceNumber}.pdf`, orderId]
     );
 

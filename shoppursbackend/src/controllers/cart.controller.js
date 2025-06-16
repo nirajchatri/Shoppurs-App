@@ -7,7 +7,7 @@ const addToCart = async (req, res) => {
 
     // First check if product exists and get its details
     const [products] = await db.promise().query(
-      'SELECT * FROM product WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -72,7 +72,7 @@ const addToCartAuto = async (req, res) => {
 
     // First check if product exists and get its details
     const [products] = await db.promise().query(
-      'SELECT * FROM product WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -173,7 +173,7 @@ const addToCartByBarcode = async (req, res) => {
 
     // Check if product exists and get its details
     const [products] = await db.promise().query(
-      'SELECT * FROM product WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -393,7 +393,7 @@ const fetchCart = async (req, res) => {
         pu.PU_PROD_RATE,
         pu.PU_STATUS
       FROM cart c
-      JOIN product p ON c.PROD_ID = p.PROD_ID
+      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.USER_ID = ? AND p.DEL_STATUS != 'Y'
     `, [userId]);
@@ -523,15 +523,33 @@ const placeOrder = async (req, res) => {
     await db.promise().query('START TRANSACTION');
 
     try {
-      // Get cart items
-      const [cartItems] = await db.promise().query(`
-        SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP,
-               pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
-        FROM cart c
-        JOIN product p ON c.PROD_ID = p.PROD_ID
-        JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
-        WHERE c.USER_ID = ?
+      // Get user's mobile and name
+      const [userInfo] = await db.promise().query(`
+        SELECT MOBILE, USERNAME FROM user_info WHERE USER_ID = ?
       `, [userId]);
+
+      if (userInfo.length === 0) {
+        await db.promise().query('ROLLBACK');
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const userMobile = userInfo[0].MOBILE;
+      const userName = userInfo[0].USERNAME;
+
+      // Get cart items with complete product details
+            const [cartItems] = await db.promise().query(`
+      SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP, p.PROD_CODE,
+             p.PROD_DESC, p.PROD_CGST, p.PROD_IGST, p.PROD_SGST,
+             p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, p.IS_BARCODE_AVAILABLE,
+             pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
+      FROM cart c
+      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
+      JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
+      WHERE c.USER_ID = ?
+    `, [userId]);
 
       if (cartItems.length === 0) {
         await db.promise().query('ROLLBACK');
@@ -574,45 +592,109 @@ const placeOrder = async (req, res) => {
         orderAddress = defaultAddr[0];
       }
 
-      // Calculate order total
+      // Calculate order total and total quantity
       const orderTotal = cartItems.reduce((total, item) => {
         return total + (item.PU_PROD_RATE * item.QUANTITY);
       }, 0);
 
-      // Generate order number
-      const orderNumber = 'ORD' + Date.now();
+      const totalQuantity = cartItems.reduce((total, item) => {
+        return total + item.QUANTITY;
+      }, 0);
 
-      // Create order with payment image if provided
+      // Generate order number and transaction ID
+      const orderNumber = 'ORD' + Date.now();
+      const transactionId = 'TXN' + Date.now();
+
+      // Get retailer info based on user's mobile
+      const [retailerInfo] = await db.promise().query(`
+        SELECT RET_ID FROM retailer_info 
+        WHERE RET_MOBILE_NO = ? AND RET_DEL_STATUS != 'Y' 
+        LIMIT 1
+      `, [userMobile]);
+
+      // Create order in cust_order table
       const [orderResult] = await db.promise().query(`
-        INSERT INTO orders (
-          ORDER_NUMBER, USER_ID, ORDER_TOTAL, ORDER_STATUS, 
-          DELIVERY_ADDRESS, DELIVERY_CITY, DELIVERY_STATE, 
-          DELIVERY_COUNTRY, DELIVERY_PINCODE, DELIVERY_LANDMARK,
-          PAYMENT_METHOD, PAYMENT_IMAGE, ORDER_NOTES, CREATED_DATE
-        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO cust_order (
+          CO_NO, CO_TRANS_ID, CO_DATE, CO_DELIVERY_NOTE, CO_DELIVERY_MODE, 
+          CO_PAYMENT_MODE, CO_IMAGE, PAYMENT_IMAGE, CO_RET_ID, CO_CUST_CODE, CO_CUST_NAME, 
+          CO_CUST_MOBILE, CO_DELIVERY_ADDRESS, CO_DELIVERY_COUNTRY, 
+          CO_DELIVERY_STATE, CO_DELIVERY_CITY, CO_PINCODE, 
+          CO_TOTAL_QTY, CO_TOTAL_AMT, CO_PAYMENT_STATUS, CO_TYPE, 
+          CO_STATUS, CREATED_BY, CREATED_DATE
+        ) VALUES (?, ?, NOW(), ?, 'delivery', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'mobile', 'pending', ?, NOW())
       `, [
-        orderNumber, userId, orderTotal, 
-        orderAddress.ADDRESS, orderAddress.CITY, orderAddress.STATE,
-        orderAddress.COUNTRY, orderAddress.PINCODE, orderAddress.LANDMARK,
-        paymentMethod || 'cod',
-        req.uploadedFile ? req.uploadedFile.filename : null,
-        notes || ''
+        orderNumber, transactionId, notes || '', paymentMethod || 'cod',
+        req.uploadedFile ? req.uploadedFile.filename : null, // CO_IMAGE (legacy)
+        req.uploadedFile ? req.uploadedFile.filename : null, // PAYMENT_IMAGE (new field)
+        retailerInfo.length > 0 ? retailerInfo[0].RET_ID : null,
+        userMobile, userName, userMobile,
+        orderAddress.ADDRESS, orderAddress.COUNTRY, orderAddress.STATE,
+        orderAddress.CITY, orderAddress.PINCODE,
+        totalQuantity, orderTotal, userId
       ]);
 
       const orderId = orderResult.insertId;
 
-      // Create order items
+      // Create order items in cust_order_details table
       for (const item of cartItems) {
         await db.promise().query(`
-          INSERT INTO order_items (
-            ORDER_ID, PROD_ID, UNIT_ID, QUANTITY, 
-            UNIT_PRICE, TOTAL_PRICE, CREATED_DATE
-          ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+          INSERT INTO cust_order_details (
+            COD_CO_ID, COD_QTY, PROD_NAME, PROD_BARCODE, PROD_DESC, 
+            PROD_MRP, PROD_SP, PROD_CGST, PROD_IGST, PROD_SGST,
+            PROD_IMAGE_1, PROD_IMAGE_2, PROD_IMAGE_3, PROD_CODE, 
+            PROD_ID, PROD_UNIT, IS_BARCODE_AVAILABLE
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          orderId, item.PROD_ID, item.UNIT_ID, item.QUANTITY,
-          item.PU_PROD_RATE, (item.PU_PROD_RATE * item.QUANTITY)
+          orderId, item.QUANTITY, item.PROD_NAME || '', '', // Empty barcode - PROD_BARCODE field doesn't exist in product table
+          item.PROD_DESC || '', item.PROD_MRP || 0, item.PU_PROD_RATE,
+          item.PROD_CGST || 0, item.PROD_IGST || 0, item.PROD_SGST || 0, // Use actual GST values from product
+          item.PROD_IMAGE_1 || '', item.PROD_IMAGE_2 || '', item.PROD_IMAGE_3 || '',
+          item.PROD_CODE || '', item.PROD_ID, item.PU_PROD_UNIT,
+          item.IS_BARCODE_AVAILABLE || 0 // Use actual IS_BARCODE_AVAILABLE from product
         ]);
       }
+
+      // Create payment record in cust_payment table
+      await db.promise().query(`
+        INSERT INTO cust_payment (
+          PAYMENT_TRANSACTION_ID, PAYMENT_TRANSACTION_TYPE, PAYMENT_MERCHANT_ID,
+          PAYMENT_AMOUNT, PAYMENT_PAYMENT_METHOD, PAYMENT_PAYMENT_MODE, PAYMENT_STATUS, 
+          PAYMENT_STATUS_MESSAGE, PAYMENT_RESPONSE_CODE, PAYMENT_RESPONSE_MESSAGE,
+          PAYMENT_PAYMENT_DATE, PAYMENT_PAYMENT_INVOICE_NO, PAYMENT_CURRENCY_CODE,
+          PAYMENT_DELIVERY_NAME, PAYMENT_DELIVERY_COUNTRY, PAYMENT_DELIVERY_STATE, 
+          PAYMENT_DELIVERY_CITY, PAYMENT_DELIVERY_ZIP, PAYMENT_BILLING_NAME,
+          PAYMENT_BILLING_CITY, PAYMENT_BILLING_ADDRESS, PAYMENT_BILLING_EMAIL,
+          PAYMENT_BILLING_COUNTRY, PAYMENT_BILLING_STATE, PAYMENT_BILLING_ZIP,
+          CREATED_BY, UPDATED_BY, CREATED_DATE, UPDATED_DATE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        transactionId, // PAYMENT_TRANSACTION_ID
+        paymentMethod === 'online' ? 'online_payment' : 'cash_on_delivery', // PAYMENT_TRANSACTION_TYPE
+        'ANWAR_FOOD_001', // PAYMENT_MERCHANT_ID (default merchant ID)
+        orderTotal, // PAYMENT_AMOUNT
+        paymentMethod || 'cod', // PAYMENT_PAYMENT_METHOD
+        paymentMethod || 'cod', // PAYMENT_PAYMENT_MODE
+        paymentMethod === 'online' ? 'pending' : 'cod', // PAYMENT_STATUS
+        paymentMethod === 'online' ? 'Payment pending verification' : 'Cash on delivery order created', // PAYMENT_STATUS_MESSAGE
+        paymentMethod === 'online' ? '100' : '200', // PAYMENT_RESPONSE_CODE (100=pending, 200=COD)
+        paymentMethod === 'online' ? 'Payment submitted successfully' : 'COD order created', // PAYMENT_RESPONSE_MESSAGE
+        orderNumber, // PAYMENT_PAYMENT_INVOICE_NO
+        'INR', // PAYMENT_CURRENCY_CODE
+        userName, // PAYMENT_DELIVERY_NAME
+        orderAddress.COUNTRY, // PAYMENT_DELIVERY_COUNTRY
+        orderAddress.STATE, // PAYMENT_DELIVERY_STATE
+        orderAddress.CITY, // PAYMENT_DELIVERY_CITY
+        orderAddress.PINCODE, // PAYMENT_DELIVERY_ZIP
+        userName, // PAYMENT_BILLING_NAME
+        orderAddress.CITY, // PAYMENT_BILLING_CITY
+        orderAddress.ADDRESS, // PAYMENT_BILLING_ADDRESS
+        userInfo[0].EMAIL || '', // PAYMENT_BILLING_EMAIL (if available from user_info)
+        orderAddress.COUNTRY, // PAYMENT_BILLING_COUNTRY
+        orderAddress.STATE, // PAYMENT_BILLING_STATE
+        orderAddress.PINCODE, // PAYMENT_BILLING_ZIP
+        userId, // CREATED_BY
+        userId // UPDATED_BY
+      ]);
 
       // Clear cart
       await db.promise().query('DELETE FROM cart WHERE USER_ID = ?', [userId]);
@@ -687,7 +769,7 @@ const increaseQuantity = async (req, res) => {
     const [updatedItem] = await db.promise().query(`
       SELECT c.*, p.PROD_NAME, pu.PU_PROD_RATE, pu.PU_PROD_UNIT_VALUE
       FROM cart c
-      JOIN product p ON c.PROD_ID = p.PROD_ID
+      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.CART_ID = ? AND c.USER_ID = ?
     `, [cartId, userId]);
@@ -764,7 +846,7 @@ const decreaseQuantity = async (req, res) => {
     const [updatedItem] = await db.promise().query(`
       SELECT c.*, p.PROD_NAME, pu.PU_PROD_RATE, pu.PU_PROD_UNIT_VALUE
       FROM cart c
-      JOIN product p ON c.PROD_ID = p.PROD_ID
+      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.CART_ID = ? AND c.USER_ID = ?
     `, [cartId, userId]);

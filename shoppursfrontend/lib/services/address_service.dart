@@ -67,8 +67,8 @@ class AddressService {
           'pincode': pincode,
           'addressType': addressType,
           'isDefault': isDefault,
-          'latitude': latitude,
-          'longitude': longitude,
+          'lat': latitude,
+          'long': longitude,
           if (landmark != null && landmark.isNotEmpty) 'landmark': landmark,
         }),
       );
@@ -117,8 +117,8 @@ class AddressService {
           'pincode': pincode,
           'addressType': addressType,
           'isDefault': isDefault,
-          'latitude': latitude,
-          'longitude': longitude,
+          'lat': latitude,
+          'long': longitude,
           if (landmark != null && landmark.isNotEmpty) 'landmark': landmark,
         }),
       );

@@ -132,104 +132,102 @@ const getRetailerByUserMobile = async (req, res) => {
       return;
     }
 
-    // Get total sales data from orders table
+    // Get total sales data from cust_order table
     const [totalSales] = await db.promise().query(`
       SELECT 
         COUNT(*) as total_orders,
-        COALESCE(SUM(ORDER_TOTAL), 0) as total_sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as total_items_sold,
-        COALESCE(AVG(ORDER_TOTAL), 0) as average_order_value
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as total_sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as total_items_sold,
+        COALESCE(AVG(CO_TOTAL_AMT), 0) as average_order_value
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')}) 
-        AND o.ORDER_STATUS != 'cancelled'
-    `, userIds);
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ? 
+        AND co.CO_STATUS != 'cancelled'
+    `, [retailerMobile]);
 
     // Get monthly sales data for graph (last 12 months)
     const [monthlySales] = await db.promise().query(`
       SELECT 
         DATE_FORMAT(CREATED_DATE, '%Y-%m') as month,
         COUNT(*) as orders_count,
-        COALESCE(SUM(ORDER_TOTAL), 0) as sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as items_sold
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as items_sold
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
-        AND o.CREATED_DATE >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
+        AND co.CREATED_DATE >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
       GROUP BY DATE_FORMAT(CREATED_DATE, '%Y-%m')
       ORDER BY month ASC
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get daily sales data for the current month
     const [dailySales] = await db.promise().query(`
       SELECT 
         DATE(CREATED_DATE) as date,
         COUNT(*) as orders_count,
-        COALESCE(SUM(ORDER_TOTAL), 0) as sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as items_sold
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as items_sold
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
         AND MONTH(CREATED_DATE) = MONTH(CURDATE())
         AND YEAR(CREATED_DATE) = YEAR(CURDATE())
       GROUP BY DATE(CREATED_DATE)
       ORDER BY date ASC
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get top selling products
     const [topProducts] = await db.promise().query(`
       SELECT 
-        p.PROD_NAME as product_name,
-        SUM(oi.QUANTITY) as total_quantity,
-        SUM(oi.TOTAL_PRICE) as total_amount,
-        COUNT(DISTINCT o.ORDER_ID) as order_count
-      FROM orders o
-      JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
-      JOIN product p ON oi.PROD_ID = p.PROD_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
-      GROUP BY oi.PROD_ID, p.PROD_NAME
+        cod.PROD_NAME as product_name,
+        SUM(cod.COD_QTY) as total_quantity,
+        SUM(cod.COD_QTY * cod.PROD_SP) as total_amount,
+        COUNT(DISTINCT co.CO_ID) as order_count
+      FROM cust_order co
+      JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
+      GROUP BY cod.PROD_ID, cod.PROD_NAME
       ORDER BY total_quantity DESC
       LIMIT 10
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get recent orders
     const [recentOrders] = await db.promise().query(`
       SELECT 
-        o.ORDER_ID,
-        o.ORDER_NUMBER,
-        o.CREATED_DATE,
-        u.USERNAME as customer_name,
-        u.MOBILE as customer_mobile,
-        o.ORDER_TOTAL,
-        oi.total_quantity,
-        o.ORDER_STATUS,
-        o.PAYMENT_METHOD
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
+        co.CO_ID as ORDER_ID,
+        co.CO_NO as ORDER_NUMBER,
+        co.CREATED_DATE,
+        co.CO_CUST_NAME as customer_name,
+        co.CO_CUST_MOBILE as customer_mobile,
+        co.CO_TOTAL_AMT as ORDER_TOTAL,
+        cod.total_quantity,
+        co.CO_STATUS as ORDER_STATUS,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-      ORDER BY o.CREATED_DATE DESC
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+      ORDER BY co.CREATED_DATE DESC
       LIMIT 10
-    `, userIds);
+    `, [retailerMobile]);
 
     res.json({
       success: true,
@@ -300,7 +298,9 @@ const updateRetailerProfile = async (req, res) => {
       RET_GST_NO,
       RET_LAT,
       RET_LONG,
-      SHOP_OPEN_STATUS
+      SHOP_OPEN_STATUS,
+      long, // Optional longitude parameter
+      lat   // Optional latitude parameter
     } = req.body;
 
     // First, get the user's mobile number
@@ -384,13 +384,18 @@ const updateRetailerProfile = async (req, res) => {
       updateFields.push('RET_GST_NO = ?');
       updateValues.push(RET_GST_NO);
     }
-    if (RET_LAT !== undefined) {
+    // Handle latitude - prioritize 'lat' parameter over 'RET_LAT'
+    const latValue = lat !== undefined ? lat : RET_LAT;
+    if (latValue !== undefined) {
       updateFields.push('RET_LAT = ?');
-      updateValues.push(RET_LAT);
+      updateValues.push(latValue);
     }
-    if (RET_LONG !== undefined) {
+    
+    // Handle longitude - prioritize 'long' parameter over 'RET_LONG'
+    const longValue = long !== undefined ? long : RET_LONG;
+    if (longValue !== undefined) {
       updateFields.push('RET_LONG = ?');
-      updateValues.push(RET_LONG);
+      updateValues.push(longValue);
     }
     if (SHOP_OPEN_STATUS !== undefined) {
       updateFields.push('SHOP_OPEN_STATUS = ?');
@@ -505,104 +510,102 @@ const getRetailerByIdAdmin = async (req, res) => {
       return;
     }
 
-    // Get total sales data from orders table
+    // Get total sales data from cust_order table
     const [totalSales] = await db.promise().query(`
       SELECT 
         COUNT(*) as total_orders,
-        COALESCE(SUM(ORDER_TOTAL), 0) as total_sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as total_items_sold,
-        COALESCE(AVG(ORDER_TOTAL), 0) as average_order_value
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as total_sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as total_items_sold,
+        COALESCE(AVG(CO_TOTAL_AMT), 0) as average_order_value
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')}) 
-        AND o.ORDER_STATUS != 'cancelled'
-    `, userIds);
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ? 
+        AND co.CO_STATUS != 'cancelled'
+    `, [retailerMobile]);
 
     // Get monthly sales data for graph (last 12 months)
     const [monthlySales] = await db.promise().query(`
       SELECT 
         DATE_FORMAT(CREATED_DATE, '%Y-%m') as month,
         COUNT(*) as orders_count,
-        COALESCE(SUM(ORDER_TOTAL), 0) as sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as items_sold
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as items_sold
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
-        AND o.CREATED_DATE >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
+        AND co.CREATED_DATE >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
       GROUP BY DATE_FORMAT(CREATED_DATE, '%Y-%m')
       ORDER BY month ASC
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get daily sales data for the current month
     const [dailySales] = await db.promise().query(`
       SELECT 
         DATE(CREATED_DATE) as date,
         COUNT(*) as orders_count,
-        COALESCE(SUM(ORDER_TOTAL), 0) as sales_amount,
-        COALESCE(SUM(oi.total_quantity), 0) as items_sold
-      FROM orders o
+        COALESCE(SUM(CO_TOTAL_AMT), 0) as sales_amount,
+        COALESCE(SUM(cod.total_quantity), 0) as items_sold
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
         AND MONTH(CREATED_DATE) = MONTH(CURDATE())
         AND YEAR(CREATED_DATE) = YEAR(CURDATE())
       GROUP BY DATE(CREATED_DATE)
       ORDER BY date ASC
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get top selling products
     const [topProducts] = await db.promise().query(`
       SELECT 
-        p.PROD_NAME as product_name,
-        SUM(oi.QUANTITY) as total_quantity,
-        SUM(oi.TOTAL_PRICE) as total_amount,
-        COUNT(DISTINCT o.ORDER_ID) as order_count
-      FROM orders o
-      JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
-      JOIN product p ON oi.PROD_ID = p.PROD_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-        AND o.ORDER_STATUS != 'cancelled'
-      GROUP BY oi.PROD_ID, p.PROD_NAME
+        cod.PROD_NAME as product_name,
+        SUM(cod.COD_QTY) as total_quantity,
+        SUM(cod.COD_QTY * cod.PROD_SP) as total_amount,
+        COUNT(DISTINCT co.CO_ID) as order_count
+      FROM cust_order co
+      JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+        AND co.CO_STATUS != 'cancelled'
+      GROUP BY cod.PROD_ID, cod.PROD_NAME
       ORDER BY total_quantity DESC
       LIMIT 10
-    `, userIds);
+    `, [retailerMobile]);
 
     // Get recent orders
     const [recentOrders] = await db.promise().query(`
       SELECT 
-        o.ORDER_ID,
-        o.ORDER_NUMBER,
-        o.CREATED_DATE,
-        u.USERNAME as customer_name,
-        u.MOBILE as customer_mobile,
-        o.ORDER_TOTAL,
-        oi.total_quantity,
-        o.ORDER_STATUS,
-        o.PAYMENT_METHOD
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
+        co.CO_ID as ORDER_ID,
+        co.CO_NO as ORDER_NUMBER,
+        co.CREATED_DATE,
+        co.CO_CUST_NAME as customer_name,
+        co.CO_CUST_MOBILE as customer_mobile,
+        co.CO_TOTAL_AMT as ORDER_TOTAL,
+        cod.total_quantity,
+        co.CO_STATUS as ORDER_STATUS,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD
+      FROM cust_order co
       LEFT JOIN (
-        SELECT ORDER_ID, SUM(QUANTITY) as total_quantity 
-        FROM order_items 
-        GROUP BY ORDER_ID
-      ) oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID IN (${userIds.map(() => '?').join(',')})
-      ORDER BY o.CREATED_DATE DESC
+        SELECT COD_CO_ID, SUM(COD_QTY) as total_quantity 
+        FROM cust_order_details 
+        GROUP BY COD_CO_ID
+      ) cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+      ORDER BY co.CREATED_DATE DESC
       LIMIT 10
-    `, userIds);
+    `, [retailerMobile]);
 
     res.json({
       success: true,

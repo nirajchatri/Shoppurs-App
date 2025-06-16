@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/auth_service.dart';
 import '../../config/api_config.dart';
 
@@ -16,11 +18,103 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
   Map<String, dynamic>? retailerData;
   bool isLoading = true;
   String? error;
+  bool isLocationLoading = false;
+  double? currentLat;
+  double? currentLong;
 
   @override
   void initState() {
     super.initState();
     _fetchRetailerData();
+  }
+
+  Future<Map<String, double?>> _getCurrentLocation() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled.');
+        return {'lat': null, 'long': null};
+      }
+
+      // Check location permissions
+      var status = await Permission.location.status;
+      if (status.isDenied) {
+        status = await Permission.location.request();
+        if (status.isDenied) {
+          print('Location permission denied');
+          return {'lat': null, 'long': null};
+        }
+      }
+
+      if (status.isPermanentlyDenied) {
+        print('Location permission permanently denied');
+        return {'lat': null, 'long': null};
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      );
+
+      return {
+        'lat': position.latitude,
+        'long': position.longitude,
+      };
+    } catch (e) {
+      print('Error getting location: $e');
+      return {'lat': null, 'long': null};
+    }
+  }
+
+  Future<void> _useMapLocation() async {
+    setState(() {
+      isLocationLoading = true;
+    });
+
+    try {
+      final location = await _getCurrentLocation();
+      
+      if (location['lat'] != null && location['long'] != null) {
+        setState(() {
+          currentLat = location['lat'];
+          currentLong = location['long'];
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location updated successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Refresh data with new location
+        _fetchRetailerData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not get location. Please try again.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error getting location. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() {
+        isLocationLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchRetailerData() async {
@@ -33,8 +127,22 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
       final token = await _authService.getToken();
       if (token == null) throw Exception('No authentication token found');
 
+      // Build URL with location parameters if available
+      String url = 'http://192.168.29.96:3000/api/retailers/my-retailer';
+      Map<String, String> queryParams = {};
+      
+      if (currentLat != null && currentLong != null) {
+        queryParams['lat'] = currentLat.toString();
+        queryParams['long'] = currentLong.toString();
+      }
+      
+      if (queryParams.isNotEmpty) {
+        final uri = Uri.parse(url).replace(queryParameters: queryParams);
+        url = uri.toString();
+      }
+
       final response = await http.get(
-        Uri.parse('http://192.168.29.96:3000/api/retailers/my-retailer'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -80,6 +188,13 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: Icon(
+              Icons.my_location,
+              color: currentLat != null && currentLong != null ? Colors.green : Colors.black,
+            ),
+            onPressed: isLocationLoading ? null : _useMapLocation,
+          ),
+          IconButton(
             icon: const Icon(Icons.edit, color: Colors.black),
             onPressed: () => Navigator.pushNamed(
               context, 
@@ -112,6 +227,69 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
+                        if (isLocationLoading)
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Getting location...',
+                                  style: TextStyle(
+                                    color: Colors.blue.shade700,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (currentLat != null && currentLong != null)
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.green.shade600,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Location: ${currentLat!.toStringAsFixed(4)}, ${currentLong!.toStringAsFixed(4)}',
+                                    style: TextStyle(
+                                      color: Colors.green.shade700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (isLocationLoading || (currentLat != null && currentLong != null))
+                          const SizedBox(height: 8),
                         _buildShopInfo(),
                         const SizedBox(height: 16),
                         _buildSalesSummary(),

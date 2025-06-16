@@ -21,7 +21,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
   final _pincodeController = TextEditingController();
   final _landmarkController = TextEditingController();
   
-  String _selectedType = 'Home';
+  String _selectedType = 'Home'; // Fixed to Home
   bool _isDefault = false;
   bool _isLoading = false;
   String? _error;
@@ -37,6 +37,23 @@ class _AddAddressPageState extends State<AddAddressPage> {
   void initState() {
     super.initState();
     _checkLocationPermission();
+    _setupAddressListeners();
+  }
+
+  void _setupAddressListeners() {
+    // Add listeners to automatically geocode when user types
+    _addressController.addListener(_onAddressChanged);
+    _cityController.addListener(_onAddressChanged);
+    _stateController.addListener(_onAddressChanged);
+    _countryController.addListener(_onAddressChanged);
+    _pincodeController.addListener(_onAddressChanged);
+  }
+
+  void _onAddressChanged() {
+    // Debounce the geocoding to avoid too many API calls
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _getCoordinatesFromAddress();
+    });
   }
 
   Future<void> _checkLocationPermission() async {
@@ -126,6 +143,42 @@ class _AddAddressPageState extends State<AddAddressPage> {
       }
     } catch (e) {
       print('Error getting address: $e');
+    }
+  }
+
+  Future<void> _getCoordinatesFromAddress() async {
+    try {
+      // Combine address fields to create a full address string
+      String fullAddress = '';
+      if (_addressController.text.isNotEmpty) fullAddress += _addressController.text;
+      if (_cityController.text.isNotEmpty) fullAddress += ', ${_cityController.text}';
+      if (_stateController.text.isNotEmpty) fullAddress += ', ${_stateController.text}';
+      if (_countryController.text.isNotEmpty) fullAddress += ', ${_countryController.text}';
+      if (_pincodeController.text.isNotEmpty) fullAddress += ', ${_pincodeController.text}';
+
+      if (fullAddress.trim().isEmpty) return;
+
+      List<Location> locations = await locationFromAddress(fullAddress);
+      
+      if (locations.isNotEmpty) {
+        Location location = locations[0];
+        LatLng newPosition = LatLng(location.latitude, location.longitude);
+        
+        setState(() {
+          _currentPosition = newPosition;
+          _updateMarkers();
+        });
+
+        // Animate map to new position
+        if (_mapController != null) {
+          _mapController!.animateCamera(
+            CameraUpdate.newLatLng(newPosition),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error getting coordinates from address: $e');
+      // Don't show error to user as this is automatic geocoding
     }
   }
 
@@ -220,7 +273,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
                 borderRadius: BorderRadius.circular(12),
                 child: _isMapLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : GoogleMap(
+                    :                         GoogleMap(
                         initialCameraPosition: CameraPosition(
                           target: _currentPosition,
                           zoom: 15,
@@ -233,6 +286,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
                         myLocationButtonEnabled: true,
                         zoomControlsEnabled: true,
                         mapToolbarEnabled: false,
+                        gestureRecognizers: {},
                         onTap: (position) {
                           setState(() {
                             _currentPosition = position;
@@ -240,7 +294,70 @@ class _AddAddressPageState extends State<AddAddressPage> {
                           });
                           _getAddressFromLatLng(position);
                         },
+                        onCameraMove: (position) {
+                          // Optional: Update marker position as user pans
+                        },
                       ),
+              ),
+            ),
+            // Current coordinates display
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.blue.shade600, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Location: ${_currentPosition.latitude.toStringAsFixed(6)}, ${_currentPosition.longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _getCurrentLocation,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Use Current',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Tip: Tap on the map to select location or type address below to auto-update map',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
             Padding(
@@ -250,42 +367,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Address Type',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTypeButton('Home'),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildTypeButton('Office'),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildTypeButton('Other'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -495,29 +576,5 @@ class _AddAddressPageState extends State<AddAddressPage> {
     );
   }
 
-  Widget _buildTypeButton(String type) {
-    final isSelected = _selectedType == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedType = type;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF9B1B1B) : const Color(0xFFF8F6F9),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          type,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
+
 } 

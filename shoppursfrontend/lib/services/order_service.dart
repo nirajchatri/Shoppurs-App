@@ -307,7 +307,42 @@ class OrderService {
     }
   }
 
-  Future<Map<String, dynamic>> employeeUpdateOrderStatusWithImage(int orderId, String status, dynamic paymentImage) async {
+  Future<Map<String, dynamic>> employeeUpdateOrderStatusWithLocation(int orderId, String status, double? lat, double? long) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('No authentication token found');
+
+      final requestBody = <String, dynamic>{
+        'status': status,
+      };
+
+      // Add location if available
+      if (lat != null && long != null) {
+        requestBody['lat'] = lat;
+        requestBody['long'] = long;
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/employee/orders/$orderId/status'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to update order status');
+      }
+    } catch (e) {
+      throw Exception('Error updating order status: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> employeeUpdateOrderStatusWithImage(int orderId, String status, dynamic paymentImage, {double? lat, double? long}) async {
     try {
       final token = await _authService.getToken();
       if (token == null) throw Exception('No authentication token found');
@@ -319,6 +354,12 @@ class OrderService {
 
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['status'] = status;
+      
+      // Add location fields if available
+      if (lat != null && long != null) {
+        request.fields['lat'] = lat.toString();
+        request.fields['long'] = long.toString();
+      }
 
       // Add the payment image with proper MIME type
       if (paymentImage != null) {

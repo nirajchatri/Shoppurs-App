@@ -41,7 +41,7 @@ const addProduct = async (req, res) => {
 
     // Insert product first
     const [result] = await connection.query(
-      `INSERT INTO product (
+      `INSERT INTO Product_Master (
         PROD_SUB_CAT_ID, PROD_NAME, PROD_CODE, PROD_DESC, PROD_MRP, PROD_SP,
         PROD_REORDER_LEVEL, PROD_QOH, PROD_HSN_CODE, PROD_CGST, PROD_IGST, PROD_SGST,
         PROD_MFG_DATE, PROD_EXPIRY_DATE, PROD_MFG_BY, PROD_IMAGE_1, PROD_IMAGE_2,
@@ -114,7 +114,7 @@ const addProduct = async (req, res) => {
 
       // Update product to indicate it has barcodes
       await connection.query(
-        'UPDATE product SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
+        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
         [productId]
       );
     }
@@ -123,7 +123,7 @@ const addProduct = async (req, res) => {
 
     // Get the created product with all details
     const [createdProduct] = await connection.query(
-      'SELECT * FROM product WHERE PROD_ID = ?',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -203,7 +203,7 @@ const editProduct = async (req, res) => {
 
     // First check if product exists
     const [existingProduct] = await connection.query(
-      'SELECT * FROM product WHERE PROD_ID = ?',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -230,7 +230,7 @@ const editProduct = async (req, res) => {
 
     // Update product details
     await connection.query(
-      `UPDATE product SET 
+      `UPDATE Product_Master SET 
         PROD_SUB_CAT_ID = ?, PROD_NAME = ?, PROD_CODE = ?, PROD_DESC = ?,
         PROD_MRP = ?, PROD_SP = ?, PROD_REORDER_LEVEL = ?, PROD_QOH = ?,
         PROD_HSN_CODE = ?, PROD_CGST = ?, PROD_IGST = ?, PROD_SGST = ?,
@@ -316,13 +316,13 @@ const editProduct = async (req, res) => {
 
       // Update product to indicate it has barcodes
       await connection.query(
-        'UPDATE product SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
+        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
         [productId]
       );
     } else {
       // If no barcodes provided, update product to indicate no barcodes
       await connection.query(
-        'UPDATE product SET IS_BARCODE_AVAILABLE = "N" WHERE PROD_ID = ?',
+        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "N" WHERE PROD_ID = ?',
         [productId]
       );
     }
@@ -331,7 +331,7 @@ const editProduct = async (req, res) => {
 
     // Get updated product details
     const [updatedProduct] = await connection.query(
-      'SELECT * FROM product WHERE PROD_ID = ?',
+      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -588,15 +588,15 @@ const fetchAllOrders = async (req, res) => {
 
     const conditions = [];
     if (status) {
-      conditions.push('o.ORDER_STATUS = ?');
+      conditions.push('co.CO_STATUS = ?');
       params.push(status);
     }
     if (startDate) {
-      conditions.push('o.CREATED_DATE >= ?');
+      conditions.push('co.CREATED_DATE >= ?');
       params.push(startDate);
     }
     if (endDate) {
-      conditions.push('o.CREATED_DATE <= ?');
+      conditions.push('co.CREATED_DATE <= ?');
       params.push(endDate);
     }
 
@@ -607,41 +607,41 @@ const fetchAllOrders = async (req, res) => {
     // Fetch orders with user details and item count
     const [orders] = await db.promise().query(
       `SELECT 
-        o.ORDER_ID, 
-        o.ORDER_NUMBER, 
-        o.USER_ID,
-        o.ORDER_TOTAL, 
-        o.ORDER_STATUS, 
-        o.DELIVERY_ADDRESS,
-        o.DELIVERY_CITY,
-        o.DELIVERY_STATE,
-        o.DELIVERY_COUNTRY,
-        o.DELIVERY_PINCODE,
-        o.DELIVERY_LANDMARK,
-        o.PAYMENT_METHOD, 
-        o.PAYMENT_IMAGE,
-        o.ORDER_NOTES,
-        o.CREATED_DATE,
-        o.UPDATED_DATE,
-        u.USERNAME as CUSTOMER_NAME,
+        co.CO_ID as ORDER_ID, 
+        co.CO_NO as ORDER_NUMBER, 
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL, 
+        co.CO_STATUS as ORDER_STATUS, 
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+        co.CO_PINCODE as DELIVERY_PINCODE,
+        '' as DELIVERY_LANDMARK,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD, 
+        co.CO_IMAGE as PAYMENT_IMAGE,
+        co.CO_DELIVERY_NOTE as ORDER_NOTES,
+        co.CREATED_DATE,
+        co.UPDATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
         u.EMAIL as CUSTOMER_EMAIL,
-        u.MOBILE as CUSTOMER_MOBILE,
-        COUNT(oi.ORDER_ITEM_ID) as TOTAL_ITEMS
-       FROM orders o 
-       LEFT JOIN user_info u ON o.USER_ID = u.USER_ID
-       LEFT JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
+        COUNT(cod.COD_ID) as TOTAL_ITEMS
+       FROM cust_order co 
+       LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+       LEFT JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
        ${whereClause}
-       GROUP BY o.ORDER_ID
-       ORDER BY o.CREATED_DATE DESC
+       GROUP BY co.CO_ID
+       ORDER BY co.CREATED_DATE DESC
        LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
 
     // Get total count for pagination
     const [countResult] = await db.promise().query(
-      `SELECT COUNT(DISTINCT o.ORDER_ID) as total 
-       FROM orders o 
-       LEFT JOIN user_info u ON o.USER_ID = u.USER_ID
+      `SELECT COUNT(DISTINCT co.CO_ID) as total 
+       FROM cust_order co 
+       LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
        ${whereClause}`,
       params
     );
@@ -671,11 +671,11 @@ const fetchAllOrders = async (req, res) => {
 const editOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status, orderNotes } = req.body;
+    const { status, orderNotes, invoiceUrl } = req.body;
 
     // Check if order exists
     const [existingOrder] = await db.promise().query(
-      'SELECT ORDER_ID FROM orders WHERE ORDER_ID = ?',
+      'SELECT CO_ID, CO_NO FROM cust_order WHERE CO_ID = ?',
       [orderId]
     );
 
@@ -695,15 +695,36 @@ const editOrderStatus = async (req, res) => {
       });
     }
 
-    // Update order
-    const [result] = await db.promise().query(
-      `UPDATE orders SET 
-        ORDER_STATUS = ?, 
-        ORDER_NOTES = ?, 
+    // Build update query based on status
+    let updateQuery, updateParams;
+    
+    if (status === 'delivered' && invoiceUrl) {
+      // If marking as delivered and invoice URL provided, update status, notes, and invoice URL
+      updateQuery = `UPDATE cust_order SET 
+        CO_STATUS = ?, 
+        CO_DELIVERY_NOTE = ?, 
+        INVOICE_URL = ?,
         UPDATED_DATE = NOW()
-      WHERE ORDER_ID = ?`,
-      [status, orderNotes, orderId]
-    );
+      WHERE CO_ID = ?`;
+      updateParams = [status, orderNotes, invoiceUrl, orderId];
+      
+      // Also update payment status to completed if it was pending
+      await db.promise().query(
+        'UPDATE cust_payment SET PAYMENT_STATUS = ? WHERE PAYMENT_PAYMENT_INVOICE_NO = ? AND PAYMENT_STATUS IN ("pending", "cod")',
+        ['done', existingOrder[0].CO_NO]
+      );
+    } else {
+      // Standard status update
+      updateQuery = `UPDATE cust_order SET 
+        CO_STATUS = ?, 
+        CO_DELIVERY_NOTE = ?, 
+        UPDATED_DATE = NOW()
+      WHERE CO_ID = ?`;
+      updateParams = [status, orderNotes, orderId];
+    }
+
+    // Update order
+    const [result] = await db.promise().query(updateQuery, updateParams);
 
     res.json({
       success: true,
@@ -727,29 +748,31 @@ const getOrderDetails = async (req, res) => {
     // Get order details with customer info
     const [orderResult] = await db.promise().query(
       `SELECT 
-        o.ORDER_ID, 
-        o.ORDER_NUMBER, 
-        o.USER_ID,
-        o.ORDER_TOTAL, 
-        o.ORDER_STATUS, 
-        o.DELIVERY_ADDRESS,
-        o.DELIVERY_CITY,
-        o.DELIVERY_STATE,
-        o.DELIVERY_COUNTRY,
-        o.DELIVERY_PINCODE,
-        o.DELIVERY_LANDMARK,
-        o.PAYMENT_METHOD, 
-        o.ORDER_NOTES,
-        o.PAYMENT_IMAGE,
-        o.CREATED_DATE,
-        o.UPDATED_DATE,
-        u.USERNAME as CUSTOMER_NAME,
+        co.CO_ID as ORDER_ID, 
+        co.CO_NO as ORDER_NUMBER, 
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL, 
+        co.CO_STATUS as ORDER_STATUS, 
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+        co.CO_PINCODE as DELIVERY_PINCODE,
+        '' as DELIVERY_LANDMARK,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD, 
+        co.CO_DELIVERY_NOTE as ORDER_NOTES,
+        co.CO_IMAGE as PAYMENT_IMAGE_LEGACY,
+        co.PAYMENT_IMAGE,
+        co.INVOICE_URL,
+        co.CREATED_DATE,
+        co.UPDATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
         u.EMAIL as CUSTOMER_EMAIL,
-        u.MOBILE as CUSTOMER_MOBILE,
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
         u.ADDRESS as CUSTOMER_ADDRESS
-       FROM orders o 
-       LEFT JOIN user_info u ON o.USER_ID = u.USER_ID
-       WHERE o.ORDER_ID = ?`,
+       FROM cust_order co 
+       LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+       WHERE co.CO_ID = ?`,
       [orderId]
     );
 
@@ -763,19 +786,18 @@ const getOrderDetails = async (req, res) => {
     // Get order items
     const [orderItems] = await db.promise().query(
       `SELECT 
-        oi.ORDER_ITEM_ID,
-        oi.PROD_ID,
-        oi.UNIT_ID,
-        oi.QUANTITY,
-        oi.UNIT_PRICE,
-        oi.TOTAL_PRICE,
-        p.PROD_NAME,
-        p.PROD_CODE,
-        p.PROD_DESC,
-        p.PROD_IMAGE_1
-       FROM order_items oi
-       LEFT JOIN product p ON oi.PROD_ID = p.PROD_ID
-       WHERE oi.ORDER_ID = ?`,
+        cod.COD_ID as ORDER_ITEM_ID,
+        cod.PROD_ID,
+        '' as UNIT_ID,
+        cod.COD_QTY as QUANTITY,
+        cod.PROD_SP as UNIT_PRICE,
+        (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+        cod.PROD_NAME,
+        cod.PROD_CODE,
+        cod.PROD_DESC,
+        cod.PROD_IMAGE_1
+       FROM cust_order_details cod
+       WHERE cod.COD_CO_ID = ?`,
       [orderId]
     );
 
@@ -1176,36 +1198,36 @@ const searchOrders = async (req, res) => {
     // Search orders by order number or user mobile
     const [orders] = await db.promise().query(`
       SELECT DISTINCT
-        o.ORDER_ID, 
-        o.ORDER_NUMBER, 
-        o.USER_ID,
-        o.ORDER_TOTAL, 
-        o.ORDER_STATUS, 
-        o.DELIVERY_ADDRESS,
-        o.DELIVERY_CITY,
-        o.DELIVERY_STATE,
-        o.PAYMENT_METHOD,
-        o.CREATED_DATE,
-        u.USERNAME as CUSTOMER_NAME,
+        co.CO_ID as ORDER_ID, 
+        co.CO_NO as ORDER_NUMBER, 
+        co.CO_CUST_CODE as USER_ID,
+        co.CO_TOTAL_AMT as ORDER_TOTAL, 
+        co.CO_STATUS as ORDER_STATUS, 
+        co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS,
+        co.CO_DELIVERY_CITY as DELIVERY_CITY,
+        co.CO_DELIVERY_STATE as DELIVERY_STATE,
+        co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+        co.CREATED_DATE,
+        co.CO_CUST_NAME as CUSTOMER_NAME,
         u.EMAIL as CUSTOMER_EMAIL,
-        u.MOBILE as CUSTOMER_MOBILE,
-        COUNT(oi.ORDER_ITEM_ID) as TOTAL_ITEMS,
-        SUM(oi.QUANTITY) as TOTAL_QUANTITY
-      FROM orders o 
-      LEFT JOIN user_info u ON o.USER_ID = u.USER_ID
-      LEFT JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.ORDER_NUMBER LIKE ? 
-         OR u.MOBILE LIKE ?
-      GROUP BY o.ORDER_ID
+        co.CO_CUST_MOBILE as CUSTOMER_MOBILE,
+        COUNT(cod.COD_ID) as TOTAL_ITEMS,
+        SUM(cod.COD_QTY) as TOTAL_QUANTITY
+      FROM cust_order co 
+      LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+      LEFT JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_NO LIKE ? 
+         OR co.CO_CUST_MOBILE LIKE ?
+      GROUP BY co.CO_ID
       ORDER BY 
         CASE 
-          WHEN o.ORDER_NUMBER = ? THEN 1
-          WHEN u.MOBILE = ? THEN 1
-          WHEN o.ORDER_NUMBER LIKE ? THEN 2
-          WHEN u.MOBILE LIKE ? THEN 2
+          WHEN co.CO_NO = ? THEN 1
+          WHEN co.CO_CUST_MOBILE = ? THEN 1
+          WHEN co.CO_NO LIKE ? THEN 2
+          WHEN co.CO_CUST_MOBILE LIKE ? THEN 2
           ELSE 3
         END,
-        o.CREATED_DATE DESC
+        co.CREATED_DATE DESC
       LIMIT 50
     `, [`%${query}%`, `%${query}%`, query, query, `${query}%`, `${query}%`]);
 
@@ -1275,11 +1297,18 @@ const fetchEmployeeOrders = async (req, res) => {
 
     // Fetch all orders created by the employee
     const [orders] = await db.promise().query(
-      `SELECT o.*, u.USERNAME as CUSTOMER_NAME, u.EMAIL as CUSTOMER_EMAIL, u.MOBILE as CUSTOMER_MOBILE
-      FROM orders o
-      JOIN user_info u ON o.USER_ID = u.USER_ID
-      WHERE o.CREATED_BY = ?
-      ORDER BY o.CREATED_DATE DESC`,
+      `SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+              co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+              co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+              co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+              co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+              co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE,
+              co.CREATED_DATE, co.UPDATED_DATE,
+              co.CO_CUST_NAME as CUSTOMER_NAME, u.EMAIL as CUSTOMER_EMAIL, co.CO_CUST_MOBILE as CUSTOMER_MOBILE
+      FROM cust_order co
+      LEFT JOIN user_info u ON co.CO_CUST_MOBILE = u.MOBILE
+      WHERE co.CREATED_BY = ?
+      ORDER BY co.CREATED_DATE DESC`,
       [employeeId]
     );
 

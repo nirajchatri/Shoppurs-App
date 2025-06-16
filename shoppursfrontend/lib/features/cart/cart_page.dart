@@ -690,6 +690,7 @@ class _CartPageState extends State<CartPage> {
                                                 const SizedBox(height: 4),
                                                 // Unit Dropdown
                                                 Container(
+                                                  width: double.infinity,
                                                   decoration: BoxDecoration(
                                                     color: Colors.grey[50],
                                                     borderRadius: BorderRadius.circular(8),
@@ -700,6 +701,7 @@ class _CartPageState extends State<CartPage> {
                                                     child: DropdownButton<int>(
                                                       value: selectedUnit['id'],
                                                       isDense: true,
+                                                      isExpanded: true,
                                                       style: TextStyle(
                                                         color: Colors.grey[700],
                                                         fontSize: 13,
@@ -707,7 +709,11 @@ class _CartPageState extends State<CartPage> {
                                                       items: availableUnits.map((unit) {
                                                         return DropdownMenuItem<int>(
                                                           value: unit['id'],
-                                                          child: Text('${unit['value']} ${unit['name']} - ₹${unit['rate']}'),
+                                                          child: Text(
+                                                            '${unit['value']} ${unit['name']} - ₹${unit['rate']}',
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: const TextStyle(fontSize: 13),
+                                                          ),
                                                         );
                                                       }).toList(),
                                                       onChanged: (newUnitId) {

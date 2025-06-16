@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/order_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../config/api_config.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -32,6 +33,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   User? _user;
   dynamic _deliveryImage; // Changed to dynamic to handle both File and XFile
   bool _showDeliveryConfirmation = false;
+  bool _isGettingLocation = false;
+  double? _currentLat;
+  double? _currentLong;
 
   @override
   void initState() {
@@ -106,6 +110,46 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<Map<String, double?>> _getCurrentLocation() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled.');
+        return {'lat': null, 'long': null};
+      }
+
+      // Check location permissions
+      var status = await Permission.location.status;
+      if (status.isDenied) {
+        status = await Permission.location.request();
+        if (status.isDenied) {
+          print('Location permission denied');
+          return {'lat': null, 'long': null};
+        }
+      }
+
+      if (status.isPermanentlyDenied) {
+        print('Location permission permanently denied');
+        return {'lat': null, 'long': null};
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      );
+
+      return {
+        'lat': position.latitude,
+        'long': position.longitude,
+      };
+    } catch (e) {
+      print('Error getting location: $e');
+      return {'lat': null, 'long': null};
     }
   }
 
@@ -493,9 +537,23 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     try {
       setState(() {
         _isUpdatingStatus = true;
+        _isGettingLocation = true;
       });
 
-      final result = await _orderService.employeeUpdateOrderStatus(_order!['ORDER_ID'], 'delivered');
+      // Get current location
+      final location = await _getCurrentLocation();
+      setState(() {
+        _currentLat = location['lat'];
+        _currentLong = location['long'];
+        _isGettingLocation = false;
+      });
+
+      final result = await _orderService.employeeUpdateOrderStatusWithLocation(
+        _order!['ORDER_ID'], 
+        'delivered',
+        _currentLat,
+        _currentLong,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -521,6 +579,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       if (mounted) {
         setState(() {
           _isUpdatingStatus = false;
+          _isGettingLocation = false;
         });
       }
     }
@@ -541,10 +600,20 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     try {
       setState(() {
         _isUpdatingStatus = true;
+        _isGettingLocation = true;
+      });
+
+      // Get current location
+      final location = await _getCurrentLocation();
+      setState(() {
+        _currentLat = location['lat'];
+        _currentLong = location['long'];
+        _isGettingLocation = false;
       });
 
       print('Starting delivery confirmation with image upload...');
       print('Image type: ${_deliveryImage.runtimeType}');
+      print('Location: lat=${_currentLat}, long=${_currentLong}');
       
       if (kIsWeb) {
         print('Web upload - Image name: ${_deliveryImage.name}');
@@ -552,11 +621,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         print('Mobile upload - Image path: ${_deliveryImage.path}');
       }
 
-      // Update order status with payment image
+      // Update order status with payment image and location
       final result = await _orderService.employeeUpdateOrderStatusWithImage(
         _order!['ORDER_ID'], 
         'delivered',
         _deliveryImage,
+        lat: _currentLat,
+        long: _currentLong,
       );
 
       print('Upload successful: ${result.toString()}');
@@ -588,6 +659,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       if (mounted) {
         setState(() {
           _isUpdatingStatus = false;
+          _isGettingLocation = false;
         });
       }
     }

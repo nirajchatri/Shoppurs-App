@@ -31,15 +31,21 @@ const getOrderList = async (req, res) => {
     `, [userMobile]);
 
     const [orders] = await db.promise().query(`
-      SELECT o.*, 
-             COUNT(oi.ORDER_ITEM_ID) as total_items,
-             SUM(oi.QUANTITY) as total_quantity
-      FROM orders o
-      LEFT JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID = ?
-      GROUP BY o.ORDER_ID
-      ORDER BY o.CREATED_DATE DESC
-    `, [userId]);
+      SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+             co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+             co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+             co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+             co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+             co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE,
+             co.CREATED_DATE, co.UPDATED_DATE,
+             COUNT(cod.COD_ID) as total_items,
+             SUM(cod.COD_QTY) as total_quantity
+      FROM cust_order co
+      LEFT JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ?
+      GROUP BY co.CO_ID
+      ORDER BY co.CREATED_DATE DESC
+    `, [userMobile]);
 
     res.json({
       success: true,
@@ -67,11 +73,32 @@ const getOrderDetails = async (req, res) => {
     const { orderId } = req.params;
     const userId = req.user.userId;
 
+    // Get user's mobile number
+    const [userInfo] = await db.promise().query(`
+      SELECT MOBILE FROM user_info WHERE USER_ID = ?
+    `, [userId]);
+
+    if (userInfo.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const userMobile = userInfo[0].MOBILE;
+
     // Get order header
     const [orders] = await db.promise().query(`
-      SELECT * FROM orders 
-      WHERE ORDER_ID = ? AND USER_ID = ?
-    `, [orderId, userId]);
+      SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+             co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+             co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+             co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+             co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+             co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE, co.INVOICE_URL as INVOICE_URL,
+             co.CREATED_DATE, co.UPDATED_DATE
+      FROM cust_order co 
+      WHERE co.CO_ID = ? AND co.CO_CUST_MOBILE = ?
+    `, [orderId, userMobile]);
 
     if (orders.length === 0) {
       return res.status(404).json({
@@ -82,12 +109,14 @@ const getOrderDetails = async (req, res) => {
 
     // Get order items with product details
     const [orderItems] = await db.promise().query(`
-      SELECT oi.*, p.PROD_NAME, p.PROD_IMAGE_1,
+      SELECT cod.COD_ID as ORDER_ITEM_ID, cod.COD_CO_ID as ORDER_ID, 
+             cod.PROD_ID, cod.COD_QTY as QUANTITY, cod.PROD_SP as UNIT_PRICE,
+             (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+             cod.PROD_NAME, cod.PROD_IMAGE_1, cod.PROD_UNIT,
              pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE
-      FROM order_items oi
-      JOIN product p ON oi.PROD_ID = p.PROD_ID
-      JOIN product_unit pu ON oi.UNIT_ID = pu.PU_ID
-      WHERE oi.ORDER_ID = ?
+      FROM cust_order_details cod
+      LEFT JOIN product_unit pu ON cod.PROD_UNIT = pu.PU_PROD_UNIT
+      WHERE cod.COD_CO_ID = ?
     `, [orderId]);
 
     res.json({
@@ -112,11 +141,26 @@ const cancelOrder = async (req, res) => {
     const { orderId } = req.params;
     const userId = req.user.userId;
     console.log(orderId, userId);
+
+    // Get user's mobile number
+    const [userInfo] = await db.promise().query(`
+      SELECT MOBILE FROM user_info WHERE USER_ID = ?
+    `, [userId]);
+
+    if (userInfo.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const userMobile = userInfo[0].MOBILE;
+
     // First check if the order exists and belongs to the user
     const [orders] = await db.promise().query(`
-      SELECT * FROM orders 
-      WHERE ORDER_ID = ? AND USER_ID = ? AND ORDER_STATUS = 'pending'
-    `, [orderId, userId]);
+      SELECT CO_ID FROM cust_order 
+      WHERE CO_ID = ? AND CO_CUST_MOBILE = ? AND CO_STATUS = 'pending'
+    `, [orderId, userMobile]);
 
     if (orders.length === 0) {
       return res.status(404).json({
@@ -127,11 +171,11 @@ const cancelOrder = async (req, res) => {
 
     // Update the order status to cancelled
     await db.promise().query(`
-      UPDATE orders 
-      SET ORDER_STATUS = 'cancelled',
+      UPDATE cust_order 
+      SET CO_STATUS = 'cancelled',
           UPDATED_DATE = NOW()
-      WHERE ORDER_ID = ? AND USER_ID = ? AND ORDER_STATUS = 'pending'
-    `, [orderId, userId]);
+      WHERE CO_ID = ? AND CO_CUST_MOBILE = ? AND CO_STATUS = 'pending'
+    `, [orderId, userMobile]);
 
     res.json({
       success: true,
@@ -159,25 +203,45 @@ const searchOrders = async (req, res) => {
       });
     }
 
+    // Get user's mobile number
+    const [userInfo] = await db.promise().query(`
+      SELECT MOBILE FROM user_info WHERE USER_ID = ?
+    `, [userId]);
+
+    if (userInfo.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const userMobile = userInfo[0].MOBILE;
+
     // Search orders by order number
     const [orders] = await db.promise().query(`
-      SELECT o.*, 
-             COUNT(oi.ORDER_ITEM_ID) as total_items,
-             SUM(oi.QUANTITY) as total_quantity
-      FROM orders o
-      LEFT JOIN order_items oi ON o.ORDER_ID = oi.ORDER_ID
-      WHERE o.USER_ID = ? 
-      AND REPLACE(o.ORDER_NUMBER, 'ORD', '') LIKE ?
-      GROUP BY o.ORDER_ID
+      SELECT co.CO_ID as ORDER_ID, co.CO_NO as ORDER_NUMBER, co.CO_CUST_CODE as USER_ID,
+             co.CO_TOTAL_AMT as ORDER_TOTAL, co.CO_STATUS as ORDER_STATUS,
+             co.CO_DELIVERY_ADDRESS as DELIVERY_ADDRESS, co.CO_DELIVERY_CITY as DELIVERY_CITY,
+             co.CO_DELIVERY_STATE as DELIVERY_STATE, co.CO_DELIVERY_COUNTRY as DELIVERY_COUNTRY,
+             co.CO_PINCODE as DELIVERY_PINCODE, co.CO_PAYMENT_MODE as PAYMENT_METHOD,
+             co.CO_DELIVERY_NOTE as ORDER_NOTES, co.CO_IMAGE as PAYMENT_IMAGE,
+             co.CREATED_DATE, co.UPDATED_DATE,
+             COUNT(cod.COD_ID) as total_items,
+             SUM(cod.COD_QTY) as total_quantity
+      FROM cust_order co
+      LEFT JOIN cust_order_details cod ON co.CO_ID = cod.COD_CO_ID
+      WHERE co.CO_CUST_MOBILE = ? 
+      AND REPLACE(co.CO_NO, 'ORD', '') LIKE ?
+      GROUP BY co.CO_ID
       ORDER BY 
         CASE 
-          WHEN o.ORDER_NUMBER = ? THEN 1
-          WHEN REPLACE(o.ORDER_NUMBER, 'ORD', '') = ? THEN 2
-          WHEN REPLACE(o.ORDER_NUMBER, 'ORD', '') LIKE ? THEN 3
+          WHEN co.CO_NO = ? THEN 1
+          WHEN REPLACE(co.CO_NO, 'ORD', '') = ? THEN 2
+          WHEN REPLACE(co.CO_NO, 'ORD', '') LIKE ? THEN 3
           ELSE 4
         END,
-        o.CREATED_DATE DESC
-    `, [userId, `%${query}%`, query, query, `${query}%`]);
+        co.CREATED_DATE DESC
+    `, [userMobile, `%${query}%`, query, query, `${query}%`]);
 
     res.json({
       success: true,

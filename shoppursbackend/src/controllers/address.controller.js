@@ -35,7 +35,9 @@ const addAddress = async (req, res) => {
       pincode,
       isDefault,
       addressType,
-      landmark
+      landmark,
+      lat,
+      long
     } = req.body;
 
     // If this is set as default, unset any existing default address
@@ -50,9 +52,9 @@ const addAddress = async (req, res) => {
     const [result] = await db.promise().query(
       `INSERT INTO customer_address (
         USER_ID, ADDRESS, CITY, STATE, COUNTRY, PINCODE, 
-        IS_DEFAULT, ADDRESS_TYPE, LANDMARK, CREATED_DATE
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [userId, address, city, state, country, pincode, isDefault ? 1 : 0, addressType, landmark]
+        IS_DEFAULT, ADDRESS_TYPE, LANDMARK, CUST_LANG, CUST_LONG, CREATED_DATE
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [userId, address, city, state, country, pincode, isDefault ? 1 : 0, addressType, landmark, lat || null, long || null]
     );
 
     res.status(201).json({
@@ -82,7 +84,9 @@ const editAddress = async (req, res) => {
       pincode,
       isDefault,
       addressType,
-      landmark
+      landmark,
+      lat,
+      long
     } = req.body;
 
     // Verify address belongs to user
@@ -111,10 +115,10 @@ const editAddress = async (req, res) => {
       `UPDATE customer_address SET 
         ADDRESS = ?, CITY = ?, STATE = ?, COUNTRY = ?, 
         PINCODE = ?, IS_DEFAULT = ?, ADDRESS_TYPE = ?, 
-        LANDMARK = ?, UPDATED_DATE = NOW()
+        LANDMARK = ?, CUST_LANG = ?, CUST_LONG = ?, UPDATED_DATE = NOW()
       WHERE ADDRESS_ID = ? AND USER_ID = ?`,
       [address, city, state, country, pincode, isDefault ? 1 : 0, 
-       addressType, landmark, addressId, userId]
+       addressType, landmark, lat || null, long || null, addressId, userId]
     );
 
     res.json({
@@ -178,9 +182,75 @@ const getDefaultAddress = async (req, res) => {
   }
 };
 
+const setDefaultAddress = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { addressId } = req.params;
+
+    // Start transaction
+    await db.promise().query('START TRANSACTION');
+
+    try {
+      // First, verify that the address exists and belongs to the user
+      const [existingAddress] = await db.promise().query(
+        'SELECT ADDRESS_ID FROM customer_address WHERE ADDRESS_ID = ? AND USER_ID = ? AND DEL_STATUS != "Y"',
+        [addressId, userId]
+      );
+
+      if (existingAddress.length === 0) {
+        await db.promise().query('ROLLBACK');
+        return res.status(404).json({
+          success: false,
+          message: 'Address not found or does not belong to you'
+        });
+      }
+
+      // Set all user's addresses to non-default (IS_DEFAULT = 0)
+      await db.promise().query(
+        'UPDATE customer_address SET IS_DEFAULT = 0, UPDATED_DATE = NOW() WHERE USER_ID = ?',
+        [userId]
+      );
+
+      // Set the specified address as default (IS_DEFAULT = 1)
+      await db.promise().query(
+        'UPDATE customer_address SET IS_DEFAULT = 1, UPDATED_DATE = NOW() WHERE ADDRESS_ID = ? AND USER_ID = ?',
+        [addressId, userId]
+      );
+
+      // Commit transaction
+      await db.promise().query('COMMIT');
+
+      // Fetch the updated default address to return in response
+      const [updatedAddress] = await db.promise().query(
+        'SELECT * FROM customer_address WHERE ADDRESS_ID = ? AND USER_ID = ?',
+        [addressId, userId]
+      );
+
+      res.json({
+        success: true,
+        message: 'Default address updated successfully',
+        data: updatedAddress[0]
+      });
+
+    } catch (error) {
+      await db.promise().query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Error setting default address:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error setting default address',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAddressList,
   addAddress,
   editAddress,
-  getDefaultAddress
+  getDefaultAddress,
+  setDefaultAddress
 }; 

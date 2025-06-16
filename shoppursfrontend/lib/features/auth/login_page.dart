@@ -31,54 +31,61 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
 
-      if (response['success'] == true) {
-        // If login is successful, navigate to home
-        if (response['token'] != null) {
-          Navigator.pushReplacementNamed(context, '/home');
+      // Only proceed if we have a valid response
+      if (response != null && response is Map<String, dynamic>) {
+        if (response['success'] == true) {
+          // Clear any previous error messages on successful response
+          setState(() {
+            _errorMessage = null;
+          });
+
+          // If login is successful, navigate to home
+          if (response['token'] != null) {
+            Navigator.pushReplacementNamed(context, '/home');
+            return;
+          }
+          // Check if verification is needed
+          else if (response['verificationId'] != null) {
+            // Show verification message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please verify your account'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            
+            // Navigate to OTP verification
+            await Future.delayed(const Duration(seconds: 1));
+            Navigator.pushNamed(
+              context,
+              '/otp-verify',
+              arguments: {
+                'verificationId': response['verificationId'],
+                'userId': response['userId'],
+                'phoneNumber': _phoneController.text,
+              },
+            );
+            return;
+          }
+        } else {
+          // Handle failed login response
+          String errorMsg = _getErrorMessage(response);
+          setState(() {
+            _errorMessage = errorMsg;
+          });
+          return;
         }
-        // Check if verification is needed
-        else if (response['verificationId'] != null) {
-          // Show verification message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please verify your account'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          
-          // Navigate to OTP verification
-          await Future.delayed(const Duration(seconds: 1));
-          Navigator.pushNamed(
-            context,
-            '/otp-verify',
-            arguments: {
-              'verificationId': response['verificationId'],
-              'userId': response['userId'],
-              'phoneNumber': _phoneController.text,
-            },
-          );
-        }
-      } else {
-        final errorMsg = response['message']?.toString().trim() ?? 'Login failed';
-        print('Login failed with message: "$errorMsg"');
-        setState(() {
-          _errorMessage = errorMsg.isEmpty ? 'Login failed. Please check your credentials.' : errorMsg;
-        });
       }
+
+      // If we reach here, something went wrong with the response
+      setState(() {
+        _errorMessage = 'Invalid credentials. Please check your phone number and password.';
+      });
+
     } catch (e) {
       print('Login exception: $e');
-      String errorMsg = 'Login failed. Make sure you enter correct id and password';
-      
-      if (e.toString().contains('Exception:')) {
-        final splitMsg = e.toString().split('Exception: ');
-        if (splitMsg.length > 1 && splitMsg[1].trim().isNotEmpty) {
-          errorMsg = splitMsg[1].trim();
-        }
-      } else if (e.toString().trim().isNotEmpty) {
-        errorMsg = e.toString().trim();
-      }
-      
+      String errorMsg = _handleLoginException(e);
       setState(() {
         _errorMessage = errorMsg;
       });
@@ -87,6 +94,59 @@ class _LoginPageState extends State<LoginPage> {
         _isLoading = false;
       });
     }
+  }
+
+  String _getErrorMessage(Map<String, dynamic> response) {
+    // Extract error message from response
+    String? serverMessage = response['message']?.toString().trim();
+    
+    if (serverMessage != null && serverMessage.isNotEmpty) {
+      // Handle specific server error messages
+      if (serverMessage.toLowerCase().contains('session') || 
+          serverMessage.toLowerCase().contains('expired') ||
+          serverMessage.toLowerCase().contains('unauthorized')) {
+        return 'Invalid credentials. Please check your phone number and password.';
+      }
+      if (serverMessage.toLowerCase().contains('invalid') || 
+          serverMessage.toLowerCase().contains('wrong') ||
+          serverMessage.toLowerCase().contains('incorrect')) {
+        return 'Invalid phone number or password. Please try again.';
+      }
+      if (serverMessage.toLowerCase().contains('not found') || 
+          serverMessage.toLowerCase().contains('user') ||
+          serverMessage.toLowerCase().contains('account')) {
+        return 'Account not found. Please check your phone number or sign up.';
+      }
+      // Return server message if it's user-friendly
+      return serverMessage;
+    }
+    
+    return 'Login failed. Please check your credentials and try again.';
+  }
+
+  String _handleLoginException(dynamic exception) {
+    String exceptionStr = exception.toString().toLowerCase();
+    
+    // Handle network-related exceptions
+    if (exceptionStr.contains('socket') || exceptionStr.contains('network') ||
+        exceptionStr.contains('connection') || exceptionStr.contains('timeout')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    
+    // Handle server-related exceptions
+    if (exceptionStr.contains('server') || exceptionStr.contains('500') ||
+        exceptionStr.contains('502') || exceptionStr.contains('503')) {
+      return 'Server error. Please try again later.';
+    }
+    
+    // Handle session/auth related exceptions
+    if (exceptionStr.contains('session') || exceptionStr.contains('expired') ||
+        exceptionStr.contains('unauthorized') || exceptionStr.contains('401')) {
+      return 'Invalid credentials. Please check your phone number and password.';
+    }
+    
+    // Default error for invalid credentials
+    return 'Invalid phone number or password. Please try again.';
   }
 
   @override

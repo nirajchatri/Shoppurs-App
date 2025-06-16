@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/auth_service.dart';
 import '../../config/api_config.dart';
 
@@ -66,6 +68,46 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
     int minutes = seconds ~/ 60;
     int remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<Map<String, double?>> _getCurrentLocation() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled.');
+        return {'lat': null, 'long': null};
+      }
+
+      // Check location permissions
+      var status = await Permission.location.status;
+      if (status.isDenied) {
+        status = await Permission.location.request();
+        if (status.isDenied) {
+          print('Location permission denied');
+          return {'lat': null, 'long': null};
+        }
+      }
+
+      if (status.isPermanentlyDenied) {
+        print('Location permission permanently denied');
+        return {'lat': null, 'long': null};
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      );
+
+      return {
+        'lat': position.latitude,
+        'long': position.longitude,
+      };
+    } catch (e) {
+      print('Error getting location: $e');
+      return {'lat': null, 'long': null};
+    }
   }
 
   Future<void> _handleResendOtp() async {
@@ -148,6 +190,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
     });
 
     try {
+      final location = await _getCurrentLocation();
       final response = await http.post(
         Uri.parse(ApiConfig.authVerifyOtp),
         headers: ApiConfig.defaultHeaders,
@@ -155,6 +198,8 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
           'phone': int.parse(phoneNumber!),
           'verification_code': verificationId!,
           'otp': otp,
+          'lat': location['lat'],
+          'long': location['long'],
         }),
       );
 

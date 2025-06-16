@@ -234,7 +234,7 @@ const login = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { phone, verification_code, otp } = req.body;
+    const { phone, verification_code, otp, long, lat } = req.body;
 
     const isOTPValid = await validateOTP(phone, verification_code, otp);
     if (!isOTPValid) {
@@ -304,10 +304,10 @@ const verifyOtp = async (req, res) => {
           `INSERT INTO retailer_info (
             RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
             RET_EMAIL_ID, RET_PHOTO, RET_COUNTRY, RET_STATE, RET_CITY, 
-            RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, CREATED_BY, UPDATED_BY,
+            RET_LAT, RET_LONG, RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, CREATED_BY, UPDATED_BY,
             BARCODE_URL
           ) VALUES (
-            ?, 'Grocery', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?, ?,
+            ?, 'Grocery', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?, ?,
             ?
           )`,
           [
@@ -321,6 +321,8 @@ const verifyOtp = async (req, res) => {
             'India',
             user.PROVINCE || 'Not provided',
             user.CITY || 'Not provided',
+            lat || null,
+            long || null,
             phone,
             phone,
             qrFileName
@@ -335,9 +337,9 @@ const verifyOtp = async (req, res) => {
           `INSERT INTO retailer_info (
             RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
             RET_EMAIL_ID, RET_PHOTO, RET_COUNTRY, RET_STATE, RET_CITY, 
-            RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, CREATED_BY, UPDATED_BY
+            RET_LAT, RET_LONG, RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, CREATED_BY, UPDATED_BY
           ) VALUES (
-            ?, 'Grocery', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?, ?
+            ?, 'Grocery', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW(), NOW(), ?, ?
           )`,
           [
             retCode,
@@ -350,12 +352,22 @@ const verifyOtp = async (req, res) => {
             'India',
             user.PROVINCE || 'Not provided',
             user.CITY || 'Not provided',
+            lat || null,
+            long || null,
             phone,
             phone
           ]
         );
       }
     } else {
+      // Update coordinates if provided
+      if (lat && long) {
+        await db.promise().query(
+          'UPDATE retailer_info SET RET_LAT = ?, RET_LONG = ?, UPDATED_DATE = NOW() WHERE RET_MOBILE_NO = ?',
+          [lat, long, phone]
+        );
+      }
+
       // If retailer exists but doesn't have a QR code, generate one
       if (!existingRetailer[0].BARCODE_URL) {
         try {
@@ -376,14 +388,28 @@ const verifyOtp = async (req, res) => {
             }
           });
 
-          // Update retailer with QR code filename
-          await db.promise().query(
-            'UPDATE retailer_info SET BARCODE_URL = ? WHERE RET_MOBILE_NO = ?',
-            [qrFileName, phone]
-          );
+          // Update retailer with QR code filename and coordinates if provided
+          let updateQuery = 'UPDATE retailer_info SET BARCODE_URL = ?';
+          let updateParams = [qrFileName];
+          
+          if (lat && long) {
+            updateQuery += ', RET_LAT = ?, RET_LONG = ?';
+            updateParams.push(lat, long);
+          }
+          
+          updateQuery += ', UPDATED_DATE = NOW() WHERE RET_MOBILE_NO = ?';
+          updateParams.push(phone);
+
+          await db.promise().query(updateQuery, updateParams);
         } catch (qrError) {
           console.error('QR Code generation error:', qrError);
-          // Continue without updating QR code if generation fails
+          // Continue without updating QR code if generation fails, but still update coordinates
+          if (lat && long) {
+            await db.promise().query(
+              'UPDATE retailer_info SET RET_LAT = ?, RET_LONG = ?, UPDATED_DATE = NOW() WHERE RET_MOBILE_NO = ?',
+              [lat, long, phone]
+            );
+          }
         }
       }
     }
