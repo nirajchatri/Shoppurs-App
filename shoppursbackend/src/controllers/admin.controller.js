@@ -41,7 +41,7 @@ const addProduct = async (req, res) => {
 
     // Insert product first
     const [result] = await connection.query(
-      `INSERT INTO Product_Master (
+      `INSERT INTO product_master (
         PROD_SUB_CAT_ID, PROD_NAME, PROD_CODE, PROD_DESC, PROD_MRP, PROD_SP,
         PROD_REORDER_LEVEL, PROD_QOH, PROD_HSN_CODE, PROD_CGST, PROD_IGST, PROD_SGST,
         PROD_MFG_DATE, PROD_EXPIRY_DATE, PROD_MFG_BY, PROD_IMAGE_1, PROD_IMAGE_2,
@@ -114,7 +114,7 @@ const addProduct = async (req, res) => {
 
       // Update product to indicate it has barcodes
       await connection.query(
-        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
+        'UPDATE product_master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
         [productId]
       );
     }
@@ -123,7 +123,7 @@ const addProduct = async (req, res) => {
 
     // Get the created product with all details
     const [createdProduct] = await connection.query(
-      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
+      'SELECT * FROM product_master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -203,7 +203,7 @@ const editProduct = async (req, res) => {
 
     // First check if product exists
     const [existingProduct] = await connection.query(
-      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
+      'SELECT * FROM product_master WHERE PROD_ID = ?',
       [productId]
     );
 
@@ -230,7 +230,7 @@ const editProduct = async (req, res) => {
 
     // Update product details
     await connection.query(
-      `UPDATE Product_Master SET 
+      `UPDATE product_master SET 
         PROD_SUB_CAT_ID = ?, PROD_NAME = ?, PROD_CODE = ?, PROD_DESC = ?,
         PROD_MRP = ?, PROD_SP = ?, PROD_REORDER_LEVEL = ?, PROD_QOH = ?,
         PROD_HSN_CODE = ?, PROD_CGST = ?, PROD_IGST = ?, PROD_SGST = ?,
@@ -316,13 +316,13 @@ const editProduct = async (req, res) => {
 
       // Update product to indicate it has barcodes
       await connection.query(
-        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
+        'UPDATE product_master SET IS_BARCODE_AVAILABLE = "Y" WHERE PROD_ID = ?',
         [productId]
       );
     } else {
       // If no barcodes provided, update product to indicate no barcodes
       await connection.query(
-        'UPDATE Product_Master SET IS_BARCODE_AVAILABLE = "N" WHERE PROD_ID = ?',
+        'UPDATE product_master SET IS_BARCODE_AVAILABLE = "N" WHERE PROD_ID = ?',
         [productId]
       );
     }
@@ -331,7 +331,7 @@ const editProduct = async (req, res) => {
 
     // Get updated product details
     const [updatedProduct] = await connection.query(
-      'SELECT * FROM Product_Master WHERE PROD_ID = ?',
+      'SELECT * FROM product_master WHERE PROD_ID = ?',
       [productId]
     );
 

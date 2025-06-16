@@ -466,7 +466,7 @@ const placeOrderForCustomer = async (req, res) => {
              p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, p.IS_BARCODE_AVAILABLE,
              pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
       FROM cart c
-      JOIN Product_Master p ON c.PROD_ID = p.PROD_ID
+      JOIN product_master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.USER_ID = ?
     `, [employeeUserId]);
