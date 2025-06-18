@@ -46,6 +46,21 @@ const pool = mysql.createPool({
 //   reconnect: true
 // });
 
+const pool = mysql.createPool({
+  host: '13.232.194.245',
+  user: 'shoppurs_mtsv',
+  password: 'Tr@n$Form$34762186627#',
+  database: 'shoppurs_mtsv',
+  port: 3306,
+  connectionLimit: 5,
+  queueLimit: 0,
+  acquireTimeout: 30000,
+  idleTimeout: 60000,
+  ssl: false,
+  charset: 'utf8mb4',
+  reconnect: true
+});
+
 
 // Test the connection
 pool.getConnection((err, connection) => {
