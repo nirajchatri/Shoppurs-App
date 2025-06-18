@@ -1,5 +1,15 @@
 const { pool: db } = require('../config/database');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const QRCode = require('qrcode');
+
+// Create directory function
+function createDirectory(dirPath) {
+  const fs = require('fs');
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
 
 // Product Management APIs
 const addProduct = async (req, res) => {
@@ -1387,6 +1397,1214 @@ const getRetailerByPhone = async (req, res) => {
   }
 };
 
+// Add new customer creation functionality
+const createCustomer = async (req, res) => {
+  const connection = await db.promise().getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const {
+      username,
+      email,
+      mobile,
+      password = '123456', // Default password
+      city,
+      province,
+      zip,
+      address,
+      // Address fields
+      addressDetails,
+      addressCity,
+      addressState,
+      addressCountry = 'India',
+      addressPincode,
+      landmark,
+      addressType = 'Home',
+      isDefaultAddress = true,
+      // Retailer location fields
+      lat,
+      long
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !mobile) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Username and mobile number are required'
+      });
+    }
+
+    // Validate mobile number format
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number format'
+      });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await connection.query(
+      'SELECT * FROM user_info WHERE EMAIL = ? OR MOBILE = ?',
+      [email || `customer_${mobile}@shop.com`, mobile]
+    );
+
+    if (existingUser.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Customer already exists with this email or mobile number'
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const customerEmail = email || `customer_${mobile}@shop.com`;
+
+    // Insert new customer
+    const [userResult] = await connection.query(
+      `INSERT INTO user_info (
+        UL_ID, USERNAME, EMAIL, MOBILE, PASSWORD, CITY, PROVINCE, ZIP, ADDRESS, 
+        CREATED_DATE, USER_TYPE, ISACTIVE, is_otp_verify, CREATED_BY
+      ) VALUES (
+        1, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'customer', 'Y', 1, ?
+      )`,
+      [username, customerEmail, mobile, hashedPassword, city, province, zip, address, req.user.USERNAME]
+    );
+
+    const userId = userResult.insertId;
+
+    // Create customer address if address details provided
+    if (addressDetails || addressCity) {
+      await connection.query(
+        `INSERT INTO customer_address (
+          USER_ID, ADDRESS, CITY, STATE, COUNTRY, PINCODE, LANDMARK, 
+          ADDRESS_TYPE, IS_DEFAULT, DEL_STATUS, CREATED_DATE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'N', NOW())`,
+        [
+          userId,
+          addressDetails || address || 'Address not provided',
+          addressCity || city || 'City not provided',
+          addressState || province || 'State not provided',
+          addressCountry,
+          addressPincode || zip || '000000',
+          landmark,
+          addressType,
+          isDefaultAddress ? 1 : 0
+        ]
+      );
+    }
+
+    // Auto-create retailer profile
+    const [lastRetailer] = await connection.query(
+      'SELECT RET_CODE FROM retailer_info ORDER BY RET_ID DESC LIMIT 1'
+    );
+
+    // Generate next retailer code
+    let nextNumber = 1;
+    if (lastRetailer.length > 0) {
+      const lastCode = lastRetailer[0].RET_CODE;
+      const lastNumber = parseInt(lastCode.replace('RET', ''));
+      nextNumber = lastNumber + 1;
+    }
+
+    const retCode = `RET${nextNumber.toString().padStart(3, '0')}`;
+
+    // Create QR code directory
+    createDirectory(path.join(__dirname, '../../uploads/retailers/qrcode'));
+
+    let qrFileName = null;
+    try {
+      // Generate QR code for the phone number
+      qrFileName = `qr_${mobile}_${Date.now()}.png`;
+      const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+      
+      // Convert phone to string and add country code
+      const phoneWithCode = `+91${mobile.toString()}`;
+      
+      // Generate QR code
+      await QRCode.toFile(qrPath, phoneWithCode, {
+        errorCorrectionLevel: 'H',
+        width: 500,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+    } catch (qrError) {
+      console.error('QR Code generation error:', qrError);
+      // Continue without QR code if generation fails
+    }
+
+    // Insert retailer profile
+    await connection.query(
+      `INSERT INTO retailer_info (
+        RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
+        RET_EMAIL_ID, RET_PHOTO, RET_COUNTRY, RET_STATE, RET_CITY, 
+        RET_LAT, RET_LONG, RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, 
+        CREATED_BY, UPDATED_BY, BARCODE_URL
+      ) VALUES (
+        ?, 'Grocery', ?, ?, ?, ?, ?, 'default-photo.jpg', ?, ?, ?, 
+        ?, ?, 'active', NOW(), NOW(), ?, ?, ?
+      )`,
+      [
+        retCode,
+        username,
+        mobile,
+        addressDetails || address || 'Not provided',
+        addressPincode || zip || 0,
+        customerEmail,
+        addressCountry,
+        addressState || province || 'Not provided',
+        addressCity || city || 'Not provided',
+        lat || null,
+        long || null,
+        req.user.USERNAME,
+        req.user.USERNAME,
+        qrFileName
+      ]
+    );
+
+    await connection.commit();
+
+    // Get created customer details
+    const [customerDetails] = await connection.query(
+      `SELECT u.*, r.RET_ID, r.RET_CODE, r.RET_TYPE 
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO 
+       WHERE u.USER_ID = ?`,
+      [userId]
+    );
+
+    // Get customer addresses
+    const [addresses] = await connection.query(
+      'SELECT * FROM customer_address WHERE USER_ID = ? AND DEL_STATUS = "N"',
+      [userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Customer and retailer profile created successfully by admin',
+      data: {
+        customer: customerDetails[0],
+        addresses: addresses,
+        createdBy: req.user.USERNAME,
+        defaultPassword: password
+      }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Create customer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating customer',
+      error: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+const createCustomerWithMultipleAddresses = async (req, res) => {
+  const connection = await db.promise().getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const {
+      username,
+      email,
+      mobile,
+      password = '123456', // Default password
+      city,
+      province,
+      zip,
+      address,
+      addresses = [], // Array of address objects
+      // Retailer location fields
+      lat,
+      long
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !mobile) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Username and mobile number are required'
+      });
+    }
+
+    // Validate mobile number format
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number format'
+      });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await connection.query(
+      'SELECT * FROM user_info WHERE EMAIL = ? OR MOBILE = ?',
+      [email || `customer_${mobile}@shop.com`, mobile]
+    );
+
+    if (existingUser.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Customer already exists with this email or mobile number'
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const customerEmail = email || `customer_${mobile}@shop.com`;
+
+    // Insert new customer
+    const [userResult] = await connection.query(
+      `INSERT INTO user_info (
+        UL_ID, USERNAME, EMAIL, MOBILE, PASSWORD, CITY, PROVINCE, ZIP, ADDRESS, 
+        CREATED_DATE, USER_TYPE, ISACTIVE, is_otp_verify, CREATED_BY
+      ) VALUES (
+        1, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'customer', 'Y', 1, ?
+      )`,
+      [username, customerEmail, mobile, hashedPassword, city, province, zip, address, req.user.USERNAME]
+    );
+
+    const userId = userResult.insertId;
+
+    // Create multiple addresses if provided
+    if (addresses && addresses.length > 0) {
+      for (let i = 0; i < addresses.length; i++) {
+        const addr = addresses[i];
+        await connection.query(
+          `INSERT INTO customer_address (
+            USER_ID, ADDRESS, CITY, STATE, COUNTRY, PINCODE, LANDMARK, 
+            ADDRESS_TYPE, IS_DEFAULT, DEL_STATUS, CREATED_DATE
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'N', NOW())`,
+          [
+            userId,
+            addr.address || 'Address not provided',
+            addr.city || 'City not provided',
+            addr.state || 'State not provided',
+            addr.country || 'India',
+            addr.pincode || '000000',
+            addr.landmark,
+            addr.addressType || 'Home',
+            (i === 0 || addr.isDefault) ? 1 : 0 // First address or explicitly marked as default
+          ]
+        );
+      }
+    } else {
+      // Create default address from basic info
+      await connection.query(
+        `INSERT INTO customer_address (
+          USER_ID, ADDRESS, CITY, STATE, COUNTRY, PINCODE, LANDMARK, 
+          ADDRESS_TYPE, IS_DEFAULT, DEL_STATUS, CREATED_DATE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'N', NOW())`,
+        [
+          userId,
+          address || 'Address not provided',
+          city || 'City not provided',
+          province || 'State not provided',
+          'India',
+          zip || '000000',
+          null,
+          'Home',
+          1
+        ]
+      );
+    }
+
+    // Auto-create retailer profile (same as single address function)
+    const [lastRetailer] = await connection.query(
+      'SELECT RET_CODE FROM retailer_info ORDER BY RET_ID DESC LIMIT 1'
+    );
+
+    let nextNumber = 1;
+    if (lastRetailer.length > 0) {
+      const lastCode = lastRetailer[0].RET_CODE;
+      const lastNumber = parseInt(lastCode.replace('RET', ''));
+      nextNumber = lastNumber + 1;
+    }
+
+    const retCode = `RET${nextNumber.toString().padStart(3, '0')}`;
+
+    // Create QR code directory
+    createDirectory(path.join(__dirname, '../../uploads/retailers/qrcode'));
+
+    let qrFileName = null;
+    try {
+      qrFileName = `qr_${mobile}_${Date.now()}.png`;
+      const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+      const phoneWithCode = `+91${mobile.toString()}`;
+      
+      await QRCode.toFile(qrPath, phoneWithCode, {
+        errorCorrectionLevel: 'H',
+        width: 500,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+    } catch (qrError) {
+      console.error('QR Code generation error:', qrError);
+    }
+
+    // Insert retailer profile
+    await connection.query(
+      `INSERT INTO retailer_info (
+        RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
+        RET_EMAIL_ID, RET_PHOTO, RET_COUNTRY, RET_STATE, RET_CITY, 
+        RET_LAT, RET_LONG, RET_DEL_STATUS, CREATED_DATE, UPDATED_DATE, 
+        CREATED_BY, UPDATED_BY, BARCODE_URL
+      ) VALUES (
+        ?, 'Grocery', ?, ?, ?, ?, ?, 'default-photo.jpg', ?, ?, ?, 
+        ?, ?, 'active', NOW(), NOW(), ?, ?, ?
+      )`,
+      [
+        retCode,
+        username,
+        mobile,
+        address || 'Not provided',
+        zip || 0,
+        customerEmail,
+        'India',
+        province || 'Not provided',
+        city || 'Not provided',
+        lat || null,
+        long || null,
+        req.user.USERNAME,
+        req.user.USERNAME,
+        qrFileName
+      ]
+    );
+
+    await connection.commit();
+
+    // Get created customer details
+    const [customerDetails] = await connection.query(
+      `SELECT u.*, r.RET_ID, r.RET_CODE, r.RET_TYPE 
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO 
+       WHERE u.USER_ID = ?`,
+      [userId]
+    );
+
+    // Get customer addresses
+    const [customerAddresses] = await connection.query(
+      'SELECT * FROM customer_address WHERE USER_ID = ? AND DEL_STATUS = "N"',
+      [userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Customer with multiple addresses and retailer profile created successfully by admin',
+      data: {
+        customer: customerDetails[0],
+        addresses: customerAddresses,
+        createdBy: req.user.USERNAME,
+        defaultPassword: password
+      }
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Create customer with multiple addresses error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating customer with multiple addresses',
+      error: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+const getCustomerDetails = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    // Get customer details with retailer info
+    const [customerDetails] = await db.promise().query(
+      `SELECT u.*, r.RET_ID, r.RET_CODE, r.RET_TYPE, r.RET_NAME as RETAILER_NAME,
+              r.RET_ADDRESS as RETAILER_ADDRESS, r.RET_CITY as RETAILER_CITY,
+              r.RET_STATE as RETAILER_STATE, r.RET_LAT, r.RET_LONG, r.BARCODE_URL
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO 
+       WHERE u.USER_ID = ? AND u.ISACTIVE = 'Y'`,
+      [customerId]
+    );
+
+    if (customerDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    // Get customer addresses
+    const [addresses] = await db.promise().query(
+      'SELECT * FROM customer_address WHERE USER_ID = ? AND DEL_STATUS = "N" ORDER BY IS_DEFAULT DESC, CREATED_DATE DESC',
+      [customerId]
+    );
+
+    // Get customer order summary
+    const [orderSummary] = await db.promise().query(
+      `SELECT 
+        COUNT(*) as total_orders,
+        SUM(CASE WHEN CO_STATUS = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+        SUM(CASE WHEN CO_STATUS = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+        SUM(CASE WHEN CO_STATUS = 'cancelled' THEN 1 ELSE 0 END) as cancelled_orders,
+        SUM(CO_TOTAL_AMT) as total_order_value
+       FROM cust_order 
+       WHERE CO_CUST_MOBILE = ?`,
+      [customerDetails[0].MOBILE]
+    );
+
+    res.json({
+      success: true,
+      message: 'Customer details fetched successfully',
+      data: {
+        customer: customerDetails[0],
+        addresses: addresses,
+        orderSummary: orderSummary[0] || {
+          total_orders: 0,
+          completed_orders: 0,
+          pending_orders: 0,
+          cancelled_orders: 0,
+          total_order_value: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get customer details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customer details',
+      error: error.message
+    });
+  }
+};
+
+const searchCustomers = async (req, res) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Search customers by name, email, mobile, or address
+    const [customers] = await db.promise().query(
+      `SELECT u.USER_ID, u.USERNAME, u.EMAIL, u.MOBILE, u.CITY, u.PROVINCE, 
+              u.ADDRESS, u.CREATED_DATE, u.USER_TYPE, u.ISACTIVE,
+              r.RET_ID, r.RET_CODE, r.RET_TYPE, r.RET_NAME as RETAILER_NAME
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO 
+       WHERE u.USER_TYPE = 'customer' 
+       AND u.ISACTIVE = 'Y'
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.CITY LIKE ? OR 
+         u.ADDRESS LIKE ?
+       )
+       ORDER BY u.CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [
+        `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`,
+        parseInt(limit), offset
+      ]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total
+       FROM user_info u 
+       WHERE u.USER_TYPE = 'customer' 
+       AND u.ISACTIVE = 'Y'
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.CITY LIKE ? OR 
+         u.ADDRESS LIKE ?
+       )`,
+      [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]
+    );
+
+    const totalCustomers = countResult[0].total;
+    const totalPages = Math.ceil(totalCustomers / limit);
+
+    res.json({
+      success: true,
+      message: 'Customers search completed',
+      data: {
+        customers: customers,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalCustomers: totalCustomers,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        searchQuery: query
+      }
+    });
+
+  } catch (error) {
+    console.error('Search customers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching customers',
+      error: error.message
+    });
+  }
+};
+
+// ===== User Management APIs (Employee & Admin Creation) =====
+
+// Create Employee User by Admin
+const createEmployeeUser = async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      mobile,
+      password = '123456', // Default password
+      city,
+      province,
+      zip,
+      address,
+      photo = null,
+      fcmToken = null,
+      ulId = 2 // Default user level for employees
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, email, and mobile number are required'
+      });
+    }
+
+    // Validate mobile number format
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number format'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await db.promise().query(
+      'SELECT * FROM user_info WHERE EMAIL = ? OR MOBILE = ?',
+      [email, mobile]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email or mobile number'
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new employee user
+    const [userResult] = await db.promise().query(
+      `INSERT INTO user_info (
+        UL_ID, USERNAME, EMAIL, MOBILE, PASSWORD, CITY, PROVINCE, ZIP, ADDRESS, 
+        PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, UPDATED_BY, 
+        USER_TYPE, ISACTIVE, is_otp_verify
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, 'employee', 'Y', 1
+      )`,
+      [
+        ulId, username, email, mobile, hashedPassword, city, province, zip, address,
+        photo, fcmToken, req.user.USERNAME, req.user.USERNAME
+      ]
+    );
+
+    const userId = userResult.insertId;
+
+    // Get created user details (excluding password)
+    const [createdUser] = await db.promise().query(
+      `SELECT USER_ID, UL_ID, USERNAME, EMAIL, MOBILE, CITY, PROVINCE, ZIP, 
+              ADDRESS, PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, 
+              UPDATED_BY, USER_TYPE, ISACTIVE, is_otp_verify
+       FROM user_info WHERE USER_ID = ?`,
+      [userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Employee user created successfully by admin',
+      data: {
+        user: createdUser[0],
+        createdBy: req.user.USERNAME,
+        defaultPassword: password,
+        userType: 'employee'
+      }
+    });
+
+  } catch (error) {
+    console.error('Create employee user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating employee user',
+      error: error.message
+    });
+  }
+};
+
+// Create Admin User by Admin
+const createAdminUser = async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      mobile,
+      password = '123456', // Default password
+      city,
+      province,
+      zip,
+      address,
+      photo = null,
+      fcmToken = null,
+      ulId = 3 // Default user level for admins
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, email, and mobile number are required'
+      });
+    }
+
+    // Validate mobile number format
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number format'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Check if user already exists
+    const [existingUser] = await db.promise().query(
+      'SELECT * FROM user_info WHERE EMAIL = ? OR MOBILE = ?',
+      [email, mobile]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email or mobile number'
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new admin user
+    const [userResult] = await db.promise().query(
+      `INSERT INTO user_info (
+        UL_ID, USERNAME, EMAIL, MOBILE, PASSWORD, CITY, PROVINCE, ZIP, ADDRESS, 
+        PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, UPDATED_BY, 
+        USER_TYPE, ISACTIVE, is_otp_verify
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, 'admin', 'Y', 1
+      )`,
+      [
+        ulId, username, email, mobile, hashedPassword, city, province, zip, address,
+        photo, fcmToken, req.user.USERNAME, req.user.USERNAME
+      ]
+    );
+
+    const userId = userResult.insertId;
+
+    // Get created user details (excluding password)
+    const [createdUser] = await db.promise().query(
+      `SELECT USER_ID, UL_ID, USERNAME, EMAIL, MOBILE, CITY, PROVINCE, ZIP, 
+              ADDRESS, PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, 
+              UPDATED_BY, USER_TYPE, ISACTIVE, is_otp_verify
+       FROM user_info WHERE USER_ID = ?`,
+      [userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin user created successfully by admin',
+      data: {
+        user: createdUser[0],
+        createdBy: req.user.USERNAME,
+        defaultPassword: password,
+        userType: 'admin'
+      }
+    });
+
+  } catch (error) {
+    console.error('Create admin user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating admin user',
+      error: error.message
+    });
+  }
+};
+
+// Get User Details (Admin/Employee) by Admin
+const getUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get user details
+    const [userDetails] = await db.promise().query(
+      `SELECT USER_ID, UL_ID, USERNAME, EMAIL, MOBILE, CITY, PROVINCE, ZIP, 
+              ADDRESS, PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, 
+              UPDATED_BY, USER_TYPE, ISACTIVE, is_otp_verify
+       FROM user_info 
+       WHERE USER_ID = ? AND USER_TYPE IN ('admin', 'employee') AND ISACTIVE = 'Y'`,
+      [userId]
+    );
+
+    if (userDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or not an admin/employee'
+      });
+    }
+
+    const user = userDetails[0];
+
+    // Get additional statistics for employees
+    let employeeStats = null;
+    if (user.USER_TYPE === 'employee') {
+      const [orderStats] = await db.promise().query(
+        `SELECT 
+          COUNT(CASE WHEN CO_TYPE = 'employee' THEN 1 END) as orders_created,
+          SUM(CASE WHEN CO_TYPE = 'employee' THEN CO_TOTAL_AMT ELSE 0 END) as total_sales_value
+         FROM cust_order 
+         WHERE CREATED_BY = ?`,
+        [user.USERNAME]
+      );
+
+      const [dwrStats] = await db.promise().query(
+        `SELECT 
+          COUNT(*) as total_dwr_entries,
+          COUNT(CASE WHEN DWR_STATUS = 'approved' THEN 1 END) as completed_days
+         FROM dwr_detail 
+         WHERE DWR_EMP_ID = ? AND DEL_STATUS = 0`,
+        [userId]
+      );
+
+      employeeStats = {
+        orders_created: orderStats[0]?.orders_created || 0,
+        total_sales_value: orderStats[0]?.total_sales_value || 0,
+        total_dwr_entries: dwrStats[0]?.total_dwr_entries || 0,
+        completed_days: dwrStats[0]?.completed_days || 0
+      };
+    }
+
+    res.json({
+      success: true,
+      message: 'User details fetched successfully',
+      data: {
+        user: user,
+        employeeStats: employeeStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user details',
+      error: error.message
+    });
+  }
+};
+
+// Search Admin/Employee Users
+const searchAdminEmployeeUsers = async (req, res) => {
+  try {
+    const { query, userType, page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Build WHERE clause for user type filter
+    let userTypeFilter = '';
+    const queryParams = [];
+    
+    if (userType && ['admin', 'employee'].includes(userType)) {
+      userTypeFilter = 'AND u.USER_TYPE = ?';
+      queryParams.push(userType);
+    } else {
+      userTypeFilter = 'AND u.USER_TYPE IN (?, ?)';
+      queryParams.push('admin', 'employee');
+    }
+
+    // Search users by name, email, mobile, or address
+    const searchParams = [
+      `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`
+    ];
+
+    const [users] = await db.promise().query(
+      `SELECT u.USER_ID, u.UL_ID, u.USERNAME, u.EMAIL, u.MOBILE, u.CITY, 
+              u.PROVINCE, u.ADDRESS, u.CREATED_DATE, u.USER_TYPE, u.ISACTIVE,
+              u.CREATED_BY, u.is_otp_verify
+       FROM user_info u 
+       WHERE u.ISACTIVE = 'Y'
+       ${userTypeFilter}
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.CITY LIKE ? OR 
+         u.ADDRESS LIKE ?
+       )
+       ORDER BY u.CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [...queryParams, ...searchParams, parseInt(limit), offset]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total
+       FROM user_info u 
+       WHERE u.ISACTIVE = 'Y'
+       ${userTypeFilter}
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.CITY LIKE ? OR 
+         u.ADDRESS LIKE ?
+       )`,
+      [...queryParams, ...searchParams]
+    );
+
+    const totalUsers = countResult[0].total;
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    res.json({
+      success: true,
+      message: 'Admin/Employee users search completed',
+      data: {
+        users: users,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalUsers: totalUsers,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        searchQuery: query,
+        userTypeFilter: userType || 'all'
+      }
+    });
+
+  } catch (error) {
+    console.error('Search admin/employee users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching admin/employee users',
+      error: error.message
+    });
+  }
+};
+
+// Update User Status (Activate/Deactivate)
+const updateUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isActive } = req.body;
+
+    // Validate isActive field
+    if (isActive === undefined || !['Y', 'N'].includes(isActive)) {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive field is required and must be Y or N'
+      });
+    }
+
+    // Check if user exists and is admin/employee
+    const [existingUser] = await db.promise().query(
+      'SELECT USER_ID, USERNAME, USER_TYPE FROM user_info WHERE USER_ID = ? AND USER_TYPE IN (?, ?)',
+      [userId, 'admin', 'employee']
+    );
+
+    if (existingUser.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or not an admin/employee'
+      });
+    }
+
+    // Prevent deactivating self
+    if (req.user.USER_ID == userId && isActive === 'N') {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot deactivate your own account'
+      });
+    }
+
+    // Update user status
+    await db.promise().query(
+      'UPDATE user_info SET ISACTIVE = ?, UPDATED_DATE = NOW(), UPDATED_BY = ? WHERE USER_ID = ?',
+      [isActive, req.user.USERNAME, userId]
+    );
+
+    // Get updated user details
+    const [updatedUser] = await db.promise().query(
+      `SELECT USER_ID, USERNAME, EMAIL, MOBILE, USER_TYPE, ISACTIVE, UPDATED_DATE
+       FROM user_info WHERE USER_ID = ?`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: `User ${isActive === 'Y' ? 'activated' : 'deactivated'} successfully`,
+      data: {
+        user: updatedUser[0],
+        updatedBy: req.user.USERNAME
+      }
+    });
+
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user status',
+      error: error.message
+    });
+  }
+};
+
+// Get Employee DWR Details by Admin
+const getEmployeeDwrDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { date, page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Validate that the user_id is for an employee
+    const [employeeCheck] = await db.promise().query(
+      'SELECT USER_ID, USERNAME, USER_TYPE FROM user_info WHERE USER_ID = ? AND USER_TYPE = ? AND ISACTIVE = ?',
+      [userId, 'employee', 'Y']
+    );
+
+    if (employeeCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found or not active'
+      });
+    }
+
+    const employee = employeeCheck[0];
+
+    // Build date filter - limit to last 14 days
+    let dateFilter = 'AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)';
+    const queryParams = [userId];
+    
+    if (date) {
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD format'
+        });
+      }
+      
+      // Check if requested date is within last 14 days
+      const requestedDate = new Date(date);
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      
+      if (requestedDate < fourteenDaysAgo) {
+        return res.status(400).json({
+          success: false,
+          message: 'Date filter is limited to last 14 days only'
+        });
+      }
+      
+      dateFilter = 'AND DATE(DWR_DATE) = ? AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)';
+      queryParams.push(date);
+    }
+
+    // Get DWR details with pagination and join with sta_master for station names
+    const [dwrData] = await db.promise().query(
+      `SELECT 
+        d.DWR_ID, d.DWR_EMP_ID, d.DWR_NO, d.DWR_DATE, d.DWR_STATUS, d.DWR_EXPENSES,
+        d.DWR_START_STA, d.DWR_END_STA, d.DWR_START_LOC, d.DWR_END_LOC, 
+        d.DWR_REMARKS, d.DWR_SUBMIT, d.DEL_STATUS, d.LAST_USER, d.TIME_STAMP,
+        DATE(d.DWR_DATE) as work_date,
+        DATE(d.DWR_SUBMIT) as start_time,
+        DATE(d.TIME_STAMP) as end_time,
+        TIME(d.DWR_SUBMIT) as start_time_only,
+        TIME(d.TIME_STAMP) as end_time_only,
+        start_sta.STA_NAME as start_station_name,
+        end_sta.STA_NAME as end_station_name
+      FROM dwr_detail d
+      LEFT JOIN sta_master start_sta ON d.DWR_START_STA = start_sta.STA_ID AND start_sta.DEL_STATUS = 0
+      LEFT JOIN sta_master end_sta ON d.DWR_END_STA = end_sta.STA_ID AND end_sta.DEL_STATUS = 0
+      WHERE d.DWR_EMP_ID = ? AND d.DEL_STATUS = 0
+      ${dateFilter}
+      ORDER BY d.DWR_DATE DESC, d.DWR_ID DESC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, parseInt(limit), offset]
+    );
+
+    // Get total count for pagination (with 14-day limit)
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total
+       FROM dwr_detail d
+       WHERE d.DWR_EMP_ID = ? AND d.DEL_STATUS = 0
+       ${dateFilter}`,
+      queryParams
+    );
+
+    const totalRecords = countResult[0].total;
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    // Get summary statistics (with 14-day limit)
+    const [summaryStats] = await db.promise().query(
+      `SELECT 
+        COUNT(*) as total_dwr_entries,
+        COUNT(CASE WHEN d.DWR_STATUS = 'approved' THEN 1 END) as completed_days,
+        COUNT(CASE WHEN d.DWR_STATUS = 'Draft' THEN 1 END) as draft_days,
+        SUM(CASE WHEN d.DWR_EXPENSES IS NOT NULL THEN d.DWR_EXPENSES ELSE 0 END) as total_expenses,
+        MIN(d.DWR_DATE) as first_work_date,
+        MAX(d.DWR_DATE) as last_work_date
+      FROM dwr_detail d
+      WHERE d.DWR_EMP_ID = ? AND d.DEL_STATUS = 0
+      ${dateFilter}`,
+      queryParams
+    );
+
+    const summary = summaryStats[0];
+
+    // Format the DWR data for better readability
+    const formattedDwrData = dwrData.map(record => ({
+      dwr_id: record.DWR_ID,
+      dwr_number: record.DWR_NO,
+      work_date: record.work_date,
+      status: record.DWR_STATUS,
+      day_start: {
+        station_id: record.DWR_START_STA,
+        station_name: record.start_station_name || 'Station not found',
+        location: record.DWR_START_LOC,
+        time: record.start_time_only,
+        full_timestamp: record.DWR_SUBMIT
+      },
+      day_end: {
+        station_id: record.DWR_END_STA,
+        station_name: record.end_station_name || (record.DWR_END_STA ? 'Station not found' : null),
+        location: record.DWR_END_LOC,
+        time: record.end_time_only,
+        full_timestamp: record.TIME_STAMP
+      },
+      expenses: record.DWR_EXPENSES || 0,
+      remarks: record.DWR_REMARKS || '',
+      last_updated_by: record.LAST_USER,
+      is_completed: record.DWR_STATUS === 'approved'
+    }));
+
+    res.json({
+      success: true,
+      message: 'Employee DWR details fetched successfully (Last 14 days)',
+      data: {
+        employee: {
+          user_id: employee.USER_ID,
+          username: employee.USERNAME,
+          user_type: employee.USER_TYPE
+        },
+        dwr_records: formattedDwrData,
+        summary: {
+          total_dwr_entries: summary.total_dwr_entries,
+          completed_days: summary.completed_days,
+          draft_days: summary.draft_days,
+          total_expenses: summary.total_expenses,
+          first_work_date: summary.first_work_date,
+          last_work_date: summary.last_work_date,
+          completion_rate: summary.total_dwr_entries > 0 
+            ? Math.round((summary.completed_days / summary.total_dwr_entries) * 100) 
+            : 0
+        },
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalRecords: totalRecords,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        filters: {
+          date_filter: date || null,
+          employee_id: userId,
+          data_limit: 'Last 14 days only'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get employee DWR details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching employee DWR details',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addProduct,
   editProduct,
@@ -1405,5 +2623,15 @@ module.exports = {
   searchOrders,
   fetchEmployees,
   fetchEmployeeOrders,
-  getRetailerByPhone
+  getRetailerByPhone,
+  createCustomer,
+  createCustomerWithMultipleAddresses,
+  getCustomerDetails,
+  searchCustomers,
+  createEmployeeUser,
+  createAdminUser,
+  getUserDetails,
+  searchAdminEmployeeUsers,
+  updateUserStatus,
+  getEmployeeDwrDetails
 }; 

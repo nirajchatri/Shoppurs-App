@@ -52,7 +52,7 @@ class CommonBottomNavBar extends StatelessWidget {
         Navigator.pushNamed(context, '/orders');
         break;
       case 1:
-        Navigator.pushNamed(context, '/product-list');
+        Navigator.pushNamed(context, '/home');
         break;
       case 2:
         if (user?.role?.toLowerCase() == 'admin' || user?.role?.toLowerCase() == 'employee') {

@@ -4,7 +4,7 @@
 
 ### Problem:
 ```
-Access to fetch at 'http://13.126.68.130:3000/api/auth/login' from origin 'http://localhost:65109' has been blocked by CORS policy
+Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http://localhost:65109' has been blocked by CORS policy
 ```
 
 ### ✅ Solution Applied:
@@ -13,13 +13,13 @@ Access to fetch at 'http://13.126.68.130:3000/api/auth/login' from origin 'http:
    ```javascript
    const corsOptions = {
      origin: [
-       'http://13.126.68.130:3000',
+       'http://192.168.29.96:3000',
        'http://localhost:65109',
        'http://localhost:8080',
        'http://127.0.0.1:3000',
        'http://127.0.0.1:65109',
        'http://127.0.0.1:8080',
-       'http://13.126.68.130:3000',
+       'http://192.168.29.96:3000',
      ],
      credentials: true,
      optionsSuccessStatus: 200,
@@ -91,7 +91,7 @@ Access to fetch at 'http://13.126.68.130:3000/api/auth/login' from origin 'http:
 #### If App Shows "No Internet Connection":
 
 1. **Check Device Internet:**
-   - Open browser and visit http://13.126.68.130:3000
+   - Open browser and visit http://192.168.29.96:3000
    - Should show: `{"success":true,"message":"Welcome to AnwarFood API","version":"1.0.0"}`
 
 2. **Clear App Data:**
@@ -108,7 +108,7 @@ Access to fetch at 'http://13.126.68.130:3000/api/auth/login' from origin 'http:
 #### If App Shows "Cannot Connect to AnwarFood Servers":
 
 1. **Check Server Status:**
-   - Visit http://13.126.68.130:3000/health
+   - Visit http://192.168.29.96:3000/health
    - Should return server status
 
 2. **Check Firewall/VPN:**
@@ -139,8 +139,8 @@ Access to fetch at 'http://13.126.68.130:3000/api/auth/login' from origin 'http:
 ### Startup Logs (Mobile):
 ```
 === SERVICE URL VERIFICATION ===
-API Config Base URL: http://13.126.68.130:3000
-HTTP Client Base URL: http://13.126.68.130:3000
+API Config Base URL: http://192.168.29.96:3000
+HTTP Client Base URL: http://192.168.29.96:3000
 ...
 === CONNECTIVITY CHECK ===
 Internet Connection: ✅ Available
@@ -183,8 +183,8 @@ Startup Connectivity Status: Connected successfully
 4. **App Crashes:** Use debug APK, check logs with `adb logcat`
 
 ### Contact Information:
-- Check server status: http://13.126.68.130:3000/health
-- API documentation: http://13.126.68.130:3000/
+- Check server status: http://192.168.29.96:3000/health
+- API documentation: http://192.168.29.96:3000/
 - Debug logs: Use debug APK with `adb logcat | grep flutter`
 
 ---

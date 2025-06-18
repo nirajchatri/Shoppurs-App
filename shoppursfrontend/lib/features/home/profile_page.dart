@@ -5,6 +5,8 @@ import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
 import '../help/help_support_page.dart';
 import '../../config/api_config.dart';
+import '../common/customer_management_hub.dart';
+import '../../services/user_profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -15,9 +17,11 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _authService = AuthService();
+  final _profileService = UserProfileService();
   User? _user;
   bool _isLoading = true;
   Map<String, dynamic>? _retailerData;
+  Map<String, dynamic>? _profileData;
 
   @override
   void initState() {
@@ -35,6 +39,20 @@ class _ProfilePageState extends State<ProfilePage> {
     // Only fetch retailer data for customers
     if (user?.role.toLowerCase() == 'customer') {
       _fetchRetailerData();
+      _fetchProfileData();
+    }
+  }
+
+  Future<void> _fetchProfileData() async {
+    try {
+      final profile = await _profileService.fetchUserProfile();
+      if (profile != null && mounted) {
+        setState(() {
+          _profileData = profile;
+        });
+      }
+    } catch (e) {
+      print('Error fetching profile data: $e');
     }
   }
 
@@ -168,6 +186,54 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildProfileImage() {
+    // Check if we have profile data with PHOTO field
+    if (_profileData != null && _profileData!['PHOTO'] != null && _profileData!['PHOTO'].toString().isNotEmpty) {
+      return Image.network(
+        '${ApiConfig.baseUrl}/${_profileData!['PHOTO']}',
+        fit: BoxFit.cover,
+        width: 90,
+        height: 90,
+        errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
+      );
+    }
+    
+    // Fallback to photo_url if PHOTO is not available
+    if (_profileData != null && _profileData!['photo_url'] != null && _profileData!['photo_url'].toString().isNotEmpty) {
+      return Image.network(
+        '${ApiConfig.baseUrl}${_profileData!['photo_url']}',
+        fit: BoxFit.cover,
+        width: 90,
+        height: 90,
+        errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
+      );
+    }
+    
+    return _buildDefaultAvatar();
+  }
+
+  Widget _buildDefaultAvatar() {
+    final username = _user?.username ?? 'User';
+    return Container(
+      width: 90,
+      height: 90,
+      decoration: BoxDecoration(
+        color: const Color(0xFF9B1B1B).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(45),
+      ),
+      child: Center(
+        child: Text(
+          username.isNotEmpty ? username[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF9B1B1B),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,6 +250,23 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (_user?.role.toLowerCase() == 'customer')
+            IconButton(
+              icon: const Icon(
+                Icons.edit,
+                color: Color(0xFF9B1B1B),
+              ),
+              onPressed: () async {
+                final result = await Navigator.pushNamed(context, '/edit-profile');
+                if (result == true) {
+                  // Profile was updated, reload the page
+                  _loadUserData();
+                }
+              },
+              tooltip: 'Edit Profile',
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -207,7 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(45),
-                      child: Image.asset('assets/images/user1.png', fit: BoxFit.cover),
+                      child: _buildProfileImage(),
                     ),
                   ),
                 ),
@@ -248,9 +331,36 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                       if (_user?.role.toLowerCase() == 'admin') ...[
                         _ProfileOption(
+                          icon: Icons.people,
+                          label: 'Customer Management',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CustomerManagementHub(),
+                            ),
+                          ),
+                        ),
+                        _ProfileOption(
+                          icon: Icons.supervisor_account,
+                          label: 'User Management',
+                          onTap: () => Navigator.pushNamed(context, '/user-management'),
+                        ),
+                        _ProfileOption(
                           icon: Icons.people_outline,
                           label: 'Manage Employee Orders',
                           onTap: () => Navigator.pushNamed(context, '/employee-orders'),
+                        ),
+                      ],
+                      if (_user?.role.toLowerCase() == 'employee') ...[
+                        _ProfileOption(
+                          icon: Icons.people,
+                          label: 'Customer Management',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CustomerManagementHub(),
+                            ),
+                          ),
                         ),
                       ],
                       _ProfileOption(

@@ -15,7 +15,7 @@ static const Environment _currentEnvironment = Environment.development;  // or s
 
 ### 2. Available Environments
 
-- **`Environment.development`** - Current setup: `http://13.126.68.130:3000`
+- **`Environment.development`** - Current setup: `http://192.168.29.96:3000`
 - **`Environment.local`** - For local development: `http://localhost:3000`
 - **`Environment.staging`** - For staging server: `https://staging-api.yourapp.com`
 - **`Environment.production`** - For production: `https://api.yourapp.com`
@@ -25,7 +25,7 @@ Before deploying to production, update the URLs in `lib/config/api_config.dart`:
 
 ```dart
 static const Map<Environment, String> _baseUrls = {
-  Environment.development: 'http://13.126.68.130:3000',
+  Environment.development: 'http://192.168.29.96:3000',
   Environment.staging: 'https://your-staging-server.com',      // ← Update this
   Environment.production: 'https://your-production-server.com', // ← Update this
   Environment.local: 'http://localhost:3000',
@@ -77,7 +77,7 @@ All API endpoints are now centralized:
 ### For Developers
 ```dart
 // Instead of hardcoded URLs like this:
-// Uri.parse('http://13.126.68.130:3000/api/products/search')
+// Uri.parse('http://192.168.29.96:3000/api/products/search')
 
 // Use centralized config like this:
 Uri.parse(ApiConfig.productsSearch)

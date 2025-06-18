@@ -4,7 +4,7 @@ import '../models/address_model.dart';
 import 'auth_service.dart';
 
 class AddressService {
-  static const String baseUrl = 'http://13.126.68.130:3000';
+  static const String baseUrl = 'http://192.168.29.96:3000';
   final AuthService _authService = AuthService();
 
   Future<List<Address>> getAddresses() async {
@@ -15,7 +15,7 @@ class AddressService {
       }
 
       final response = await http.get(
-        Uri.parse('http://13.126.68.130:3000/api/address/list'),
+        Uri.parse('http://192.168.29.96:3000/api/address/list'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ class AddressService {
       }
 
       final response = await http.post(
-        Uri.parse('http://13.126.68.130:3000/api/address/add'),
+        Uri.parse('http://192.168.29.96:3000/api/address/add'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ class AddressService {
       }
 
       final response = await http.put(
-        Uri.parse('http://13.126.68.130:3000/api/address/edit/$addressId'),
+        Uri.parse('http://192.168.29.96:3000/api/address/edit/$addressId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ class AddressService {
     final token = await _authService.getToken();
     if (token == null) throw Exception('No authentication token found');
     final response = await http.get(
-      Uri.parse('http://13.126.68.130:3000/api/address/default'),
+      Uri.parse('http://192.168.29.96:3000/api/address/default'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',

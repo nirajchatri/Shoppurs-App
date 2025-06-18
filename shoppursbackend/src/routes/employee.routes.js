@@ -15,7 +15,11 @@ const {
   getStaMaster,
   getTodayDwr,
   startDay,
-  endDay
+  endDay,
+  createCustomerByEmployee,
+  createCustomerWithMultipleAddressesByEmployee,
+  getCustomerDetailsByEmployee,
+  searchCustomersByEmployee
 } = require('../controllers/employee.controller');
 
 // Apply employee middleware to all routes
@@ -41,5 +45,11 @@ router.get('/sta-master', getStaMaster);
 router.get('/dwr/today', getTodayDwr);
 router.post('/dwr/start-day', startDay);
 router.put('/dwr/end-day', endDay);
+
+// Customer Management Routes
+router.post('/create-customer', createCustomerByEmployee);
+router.post('/create-customer-with-addresses', createCustomerWithMultipleAddressesByEmployee);
+router.get('/get-customer-details/:customerId', getCustomerDetailsByEmployee);
+router.get('/search-customers', searchCustomersByEmployee);
 
 module.exports = router; 

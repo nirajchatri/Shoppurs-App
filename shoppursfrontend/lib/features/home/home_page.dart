@@ -2048,7 +2048,7 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: _buildFloatingActionButton(),
       bottomNavigationBar: CommonBottomNavBar(
-        currentIndex: 3, // Home page is the SEARCH tab
+        currentIndex: 1, // Home page is the PRODUCTS tab
         user: _user,
       ),
     );

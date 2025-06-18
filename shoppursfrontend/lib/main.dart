@@ -26,9 +26,13 @@ import 'features/home/search_page.dart';
 import 'features/home/profile_page.dart';
 import 'features/profile/address_list_page.dart';
 import 'features/profile/add_address_page.dart';
+import 'features/profile/edit_profile_page.dart';
 import 'features/notifications/notification_page.dart';
 import 'features/admin/manage_users_page.dart';
 import 'features/admin/category_management_page.dart';
+import 'features/admin/user_management_page.dart';
+import 'features/admin/create_user_page.dart';
+import 'features/admin/user_details_page.dart';
 import 'startup_page.dart';
 import 'debug_helper.dart';
 import 'services/http_client.dart';
@@ -102,11 +106,13 @@ class ShoppursShopApp extends StatelessWidget {
         '/payment': (context) => PaymentPage(),
         '/search': (context) => const SearchPage(),
         '/profile': (context) => const ProfilePage(),
+        '/edit-profile': (context) => const EditProfilePage(),
         '/address-list': (context) => const AddressListPage(),
         '/add-address': (context) => const AddAddressPage(),
         '/notifications': (context) => const NotificationPage(),
         '/manage-users': (context) => const ManageUsersPage(),
         '/category-management': (context) => const CategoryManagementPage(),
+        '/user-management': (context) => const UserManagementPage(),
         '/retailer-list': (context) => const RetailerListPage(),
       },
     );

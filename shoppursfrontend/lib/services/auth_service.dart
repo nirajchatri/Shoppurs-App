@@ -236,6 +236,21 @@ class AuthService {
     return prefs.getBool(_onboardingKey) ?? false;
   }
 
+  // Update user data in local storage
+  Future<void> updateUserData({String? username}) async {
+    final currentUser = await getUser();
+    if (currentUser != null) {
+      final updatedUser = User(
+        id: currentUser.id,
+        username: username ?? currentUser.username,
+        email: currentUser.email,
+        mobile: currentUser.mobile,
+        role: currentUser.role,
+      );
+      await _saveUser(updatedUser);
+    }
+  }
+
   // Clear all cached data including any localhost references
   Future<void> clearAllCache() async {
     final prefs = await SharedPreferences.getInstance();

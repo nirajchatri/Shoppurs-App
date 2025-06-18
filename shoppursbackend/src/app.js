@@ -12,6 +12,7 @@ const retailerRoutes = require('./routes/retailer.routes');
 const adminRoutes = require('./routes/admin.routes');
 const employeeRoutes = require('./routes/employee.routes');
 const settingsRoutes = require('./routes/settings.routes');
+const userRoutes = require('./routes/user.routes');
 
 const app = express();
 
@@ -94,6 +95,7 @@ app.use('/api/retailers', retailerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

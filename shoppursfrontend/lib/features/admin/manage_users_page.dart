@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/admin_service.dart';
+import '../common/customer_management_hub.dart';
 
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({Key? key}) : super(key: key);
@@ -224,6 +225,18 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
           ),
         ),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people, color: Color(0xFF9B1B1B)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CustomerManagementHub(),
+              ),
+            ),
+            tooltip: 'Customer Management',
+          ),
+        ],
       ),
       body: Column(
         children: [

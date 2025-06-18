@@ -7,7 +7,7 @@ class ApiConfig {
   
   // Environment-specific URLs
   static const Map<Environment, String> _baseUrls = {
-    Environment.development: 'http://13.126.68.130:3000',
+    Environment.development: 'http://192.168.29.96:3000',
     Environment.staging: 'https://staging-api.yourapp.com',
     Environment.production: 'https://api.yourapp.com',
     Environment.local: 'http://localhost:3000',
@@ -83,6 +83,19 @@ class ApiConfig {
   static String adminEditProduct(int productId) => '$baseUrl/api/admin/edit-product/$productId';
   static String adminEmployeeOrders(int userId) => '$baseUrl/api/admin/employee-orders/$userId';
   
+  // Customer Management by Admin
+  static String get adminCreateCustomer => '$baseUrl/api/admin/create-customer';
+  static String get adminCreateCustomerWithAddresses => '$baseUrl/api/admin/create-customer-with-addresses';
+  static String get adminSearchCustomers => '$baseUrl/api/admin/search-customers';
+  static String adminGetCustomerDetails(int customerId) => '$baseUrl/api/admin/get-customer-details/$customerId';
+  
+  // User Management by Admin
+  static String get adminCreateEmployeeUser => '$baseUrl/api/admin/create-employee-user';
+  static String get adminCreateAdminUser => '$baseUrl/api/admin/create-admin-user';
+  static String get adminSearchAdminEmployeeUsers => '$baseUrl/api/admin/search-admin-employee-users';
+  static String adminGetUserDetails(int userId) => '$baseUrl/api/admin/get-user-details/$userId';
+  static String adminUpdateUserStatus(int userId) => '$baseUrl/api/admin/update-user-status/$userId';
+  
   // =============================================================================
   // EMPLOYEE ENDPOINTS
   // =============================================================================
@@ -91,6 +104,12 @@ class ApiConfig {
   static String get employeePlaceOrder => '$baseUrl/api/employee/place-order';
   static String employeeOrderDetails(int orderId) => '$baseUrl/api/employee/orders/$orderId';
   static String employeeOrderStatus(int orderId) => '$baseUrl/api/employee/orders/$orderId/status';
+  
+  // Customer Management by Employee
+  static String get employeeCreateCustomer => '$baseUrl/api/employee/create-customer';
+  static String get employeeCreateCustomerWithAddresses => '$baseUrl/api/employee/create-customer-with-addresses';
+  static String get employeeSearchCustomers => '$baseUrl/api/employee/search-customers';
+  static String employeeGetCustomerDetails(int customerId) => '$baseUrl/api/employee/get-customer-details/$customerId';
   
   // =============================================================================
   // RETAILER ENDPOINTS

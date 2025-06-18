@@ -951,7 +951,7 @@ class _CartPageState extends State<CartPage> {
               // Already on orders/cart
               break;
             case 1:
-              Navigator.pushNamed(context, '/product-list');
+              Navigator.pushNamed(context, '/home');
               break;
             case 2:
               Navigator.pushNamed(context, '/self-retailer-detail');

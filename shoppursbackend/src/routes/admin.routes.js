@@ -20,7 +20,17 @@ const {
   searchOrders,
   fetchEmployees,
   fetchEmployeeOrders,
-  getRetailerByPhone
+  getRetailerByPhone,
+  createCustomer,
+  createCustomerWithMultipleAddresses,
+  getCustomerDetails,
+  searchCustomers,
+  createEmployeeUser,
+  createAdminUser,
+  getUserDetails,
+  searchAdminEmployeeUsers,
+  updateUserStatus,
+  getEmployeeDwrDetails
 } = require('../controllers/admin.controller');
 
 // Apply admin middleware to all routes
@@ -55,5 +65,19 @@ router.get('/get-retailer-by-phone/:phone', getRetailerByPhone);
 // Employee Management Routes
 router.get('/employees', fetchEmployees);
 router.get('/employee-orders/:employeeId', fetchEmployeeOrders);
+router.get('/employee-dwr-details/:userId', getEmployeeDwrDetails);
+
+// Customer Management Routes
+router.post('/create-customer', createCustomer);
+router.post('/create-customer-with-addresses', createCustomerWithMultipleAddresses);
+router.get('/get-customer-details/:customerId', getCustomerDetails);
+router.get('/search-customers', searchCustomers);
+
+// User Management Routes (Employee & Admin Creation)
+router.post('/create-employee-user', createEmployeeUser);
+router.post('/create-admin-user', createAdminUser);
+router.get('/get-user-details/:userId', getUserDetails);
+router.get('/search-admin-employee-users', searchAdminEmployeeUsers);
+router.put('/update-user-status/:userId', updateUserStatus);
 
 module.exports = router; 

@@ -128,7 +128,7 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
       if (token == null) throw Exception('No authentication token found');
 
       // Build URL with location parameters if available
-      String url = 'http://13.126.68.130:3000/api/retailers/my-retailer';
+      String url = 'http://192.168.29.96:3000/api/retailers/my-retailer';
       Map<String, String> queryParams = {};
       
       if (currentLat != null && currentLong != null) {
@@ -315,7 +315,7 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
               Navigator.pushNamed(context, '/orders');
               break;
             case 1:
-              Navigator.pushNamed(context, '/product-list');
+              Navigator.pushNamed(context, '/home');
               break;
             case 2:
               // Already on self retailer detail page

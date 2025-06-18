@@ -14,6 +14,7 @@ createDirectory('./uploads/retailers/profiles');
 createDirectory('./uploads/retailers/barcodes');
 createDirectory('./uploads/products');
 createDirectory('./uploads/orders'); // Add orders directory
+createDirectory('./uploads/users/profiles'); // Add users profiles directory
 
 // File filter function for images
 const imageFilter = (req, file, cb) => {
@@ -77,6 +78,19 @@ const orderPaymentStorage = multer.diskStorage({
   }
 });
 
+// Storage configuration for user profile images
+const userProfileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads/users/profiles');
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename: user_profile_timestamp_originalname
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `user_profile_${uniqueSuffix}${extension}`);
+  }
+});
+
 // Multer upload configurations
 const uploadRetailerProfile = multer({
   storage: retailerProfileStorage,
@@ -116,7 +130,16 @@ const uploadOrderPayment = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 1 // Only one payment image
   }
-  }).single('paymentImage'); // Field name: paymentImage
+}).single('paymentImage'); // Field name: paymentImage
+
+const uploadUserProfile = multer({
+  storage: userProfileStorage,
+  fileFilter: imageFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1 // Only one profile image
+  }
+}).single('profilePhoto'); // Field name: profilePhoto
 
 // Middleware wrapper functions with error handling
 const retailerProfileUpload = (req, res, next) => {
@@ -278,9 +301,50 @@ const orderPaymentUpload = (req, res, next) => {
   });
 };
 
+const userProfileUpload = (req, res, next) => {
+  uploadUserProfile(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File size too large. Maximum size is 5MB.'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          success: false,
+          message: 'Too many files. Only one profile photo is allowed.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'File upload error: ' + err.message
+      });
+    } else if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    
+    // Add file path to request object for database storage
+    if (req.file) {
+      req.uploadedFile = {
+        path: req.file.path,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size
+      };
+    }
+    
+    next();
+  });
+};
+
 module.exports = {
   retailerProfileUpload,
   retailerBarcodeUpload,
   productImagesUpload,
-  orderPaymentUpload
+  orderPaymentUpload,
+  userProfileUpload
 }; 
