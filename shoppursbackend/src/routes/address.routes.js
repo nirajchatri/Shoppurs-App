@@ -5,8 +5,7 @@ const {
   getAddressList,
   addAddress,
   editAddress,
-  getDefaultAddress,
-  setDefaultAddress
+  getDefaultAddress
 } = require('../controllers/address.controller');
 
 // Get list of customer addresses
@@ -20,8 +19,5 @@ router.post('/add', authMiddleware, addAddress);
 
 // Edit customer address
 router.put('/edit/:addressId', authMiddleware, editAddress);
-
-// Set default address
-router.put('/set-default/:addressId', authMiddleware, setDefaultAddress);
 
 module.exports = router; 

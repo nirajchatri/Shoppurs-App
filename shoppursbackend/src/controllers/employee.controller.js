@@ -212,19 +212,19 @@ const getOrderDetails = async (req, res) => {
 
     // Get order items if needed
     const [orderItems] = await db.promise().query(
-      `SELECT 
-        cod.COD_ID as ORDER_ITEM_ID,
-        cod.COD_CO_ID as ORDER_ID,
-        cod.PROD_ID,
-        cod.COD_QTY as QUANTITY,
-        cod.PROD_SP as UNIT_PRICE,
-        (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
-        cod.PROD_NAME,
-        cod.PROD_IMAGE_1,
-        cod.PROD_UNIT as PU_PROD_UNIT,
-        '' as PU_PROD_UNIT_VALUE
-      FROM cust_order_details cod
-      WHERE cod.COD_CO_ID = ?`,
+      `SELECT cod.COD_ID as ORDER_ITEM_ID, cod.COD_CO_ID as ORDER_ID,
+              cod.PROD_ID, cod.COD_QTY as QUANTITY, cod.PROD_SP as UNIT_PRICE,
+              (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
+              cod.PROD_NAME, cod.PROD_CODE, cod.PROD_MRP as PROD_MRP,
+              cod.PROD_SP, cod.PROD_IMAGE_1, cod.PROD_IMAGE_2, cod.PROD_IMAGE_3,
+              cod.PROD_UNIT as PU_PROD_UNIT, 
+              COALESCE(p.PROD_HSN_CODE, cod.PROD_BARCODE, '') as PROD_HSN_CODE,
+              COALESCE(cod.PROD_CGST, p.PROD_CGST, 0) as PROD_CGST,
+              COALESCE(cod.PROD_SGST, p.PROD_SGST, 0) as PROD_SGST,
+              COALESCE(cod.PROD_IGST, p.PROD_IGST, 0) as PROD_IGST
+       FROM cust_order_details cod
+       LEFT JOIN product_master p ON cod.PROD_ID = p.PROD_ID
+       WHERE cod.COD_CO_ID = ?`,
       [orderId]
     );
 
@@ -347,13 +347,39 @@ const updateOrderStatus = async (req, res) => {
                 (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
                 cod.PROD_NAME, cod.PROD_CODE, cod.PROD_MRP as PROD_MRP,
                 cod.PROD_SP, cod.PROD_IMAGE_1, cod.PROD_IMAGE_2, cod.PROD_IMAGE_3,
-                cod.PROD_UNIT as PU_PROD_UNIT, '' as PROD_HSN_CODE
+                cod.PROD_UNIT as PU_PROD_UNIT, 
+                COALESCE(p.PROD_HSN_CODE, cod.PROD_BARCODE, '') as PROD_HSN_CODE,
+                COALESCE(cod.PROD_CGST, p.PROD_CGST, 0) as PROD_CGST,
+                COALESCE(cod.PROD_SGST, p.PROD_SGST, 0) as PROD_SGST,
+                COALESCE(cod.PROD_IGST, p.PROD_IGST, 0) as PROD_IGST
          FROM cust_order_details cod
+         LEFT JOIN product_master p ON cod.PROD_ID = p.PROD_ID
          WHERE cod.COD_CO_ID = ?`,
         [orderId]
       );
       // Generate invoice number (e.g., INV + orderId)
       const invoiceNumber = `INV${orderId}`;
+      
+      // Calculate tax totals from order items
+      let totalCGST = 0;
+      let totalSGST = 0;
+      let totalIGST = 0;
+      let totalTaxableValue = 0;
+
+      orderItems.forEach(item => {
+        const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+        const cgstRate = parseFloat(item.PROD_CGST || 0);
+        const sgstRate = parseFloat(item.PROD_SGST || 0);
+        const igstRate = parseFloat(item.PROD_IGST || 0);
+        
+        totalTaxableValue += itemTaxableValue;
+        totalCGST += (itemTaxableValue * cgstRate) / 100;
+        totalSGST += (itemTaxableValue * sgstRate) / 100;
+        totalIGST += (itemTaxableValue * igstRate) / 100;
+      });
+
+      const totalTaxAmount = totalCGST + totalSGST + totalIGST;
+      
       // Generate PDF and QR code
       const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ order, orderItems, invoiceNumber });
       // Insert into invoice_master
@@ -371,11 +397,11 @@ const updateOrderStatus = async (req, res) => {
           order.USER_ADDRESS || order.DELIVERY_ADDRESS,
           order.MOBILE,
           '', // INVM_CUST_GST
-          0, // INVM_TOT_CGST
-          0, // INVM_TOT_SGST
-          0, // INVM_TOT_IGST
+          totalCGST.toFixed(2), // INVM_TOT_CGST
+          totalSGST.toFixed(2), // INVM_TOT_SGST
+          totalIGST.toFixed(2), // INVM_TOT_IGST
           0, // INVM_TOT_DISCOUNT_AMOUNT
-          0, // INVM_TOT_TAX_AMOUNT
+          totalTaxAmount.toFixed(2), // INVM_TOT_TAX_AMOUNT
           order.ORDER_TOTAL,
           order.ORDER_TOTAL,
           'active',
@@ -387,10 +413,15 @@ const updateOrderStatus = async (req, res) => {
       const invoiceId = invoiceResult.insertId;
       // Insert into invoice_detail for each item
       for (const item of orderItems) {
+        const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+        const cgstAmount = (itemTaxableValue * parseFloat(item.PROD_CGST || 0)) / 100;
+        const sgstAmount = (itemTaxableValue * parseFloat(item.PROD_SGST || 0)) / 100;
+        const igstAmount = (itemTaxableValue * parseFloat(item.PROD_IGST || 0)) / 100;
+        
         await db.promise().query(
           `INSERT INTO invoice_detail (INVD_INVM_ID, INVD_PROD_ID, INVD_PROD_CODE, INVD_PROD_NAME, INVD_PROD_UNIT, INVD_QTY, INVD_HSN_CODE, INVD_MRP, INVD_SP, INVD_DISCOUNT_PERCENTAGE, INVD_DISCOUNT_AMOUNT, INVD_CGST, INVD_SGST, INVD_IGST, INVD_PROD_IMAGE_1, INVD_PROD_IMAGE_2, INVD_PROD_IMAGE_3, INVD_TAMOUNT, INVD_PROD_STATUS, CREATED_BY, UPDATED_BY, CREATED_DATE, UPDATED_DATE)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, 'A', ?, ?, NOW(), NOW())`,
-          [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 'A', ?, ?, NOW(), NOW())`,
+          [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, cgstAmount.toFixed(2), sgstAmount.toFixed(2), igstAmount.toFixed(2), item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
         );
       }
       // Update the cust_order table with the invoice URL
@@ -579,7 +610,7 @@ const placeOrderForCustomer = async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const [dwrData] = await connection.query(`
       SELECT DWR_ID FROM dwr_detail 
-      WHERE DWR_EMP_ID = ? AND DATE(DWR_SUBMIT) = ? AND DEL_STATUS = 0
+      WHERE DWR_EMP_ID = ? AND DATE(DWR_DATE) = ? AND DEL_STATUS = 0
       ORDER BY DWR_ID DESC
       LIMIT 1
     `, [employeeUserId, today]);
@@ -630,13 +661,39 @@ const placeOrderForCustomer = async (req, res) => {
               (cod.COD_QTY * cod.PROD_SP) as TOTAL_PRICE,
               cod.PROD_NAME, cod.PROD_CODE, cod.PROD_MRP as PROD_MRP,
               cod.PROD_SP, cod.PROD_IMAGE_1, cod.PROD_IMAGE_2, cod.PROD_IMAGE_3,
-              cod.PROD_UNIT as PU_PROD_UNIT, '' as PROD_HSN_CODE
+              cod.PROD_UNIT as PU_PROD_UNIT, 
+              COALESCE(p.PROD_HSN_CODE, cod.PROD_BARCODE, '') as PROD_HSN_CODE,
+              COALESCE(cod.PROD_CGST, p.PROD_CGST, 0) as PROD_CGST,
+              COALESCE(cod.PROD_SGST, p.PROD_SGST, 0) as PROD_SGST,
+              COALESCE(cod.PROD_IGST, p.PROD_IGST, 0) as PROD_IGST
        FROM cust_order_details cod
+       LEFT JOIN product_master p ON cod.PROD_ID = p.PROD_ID
        WHERE cod.COD_CO_ID = ?`,
       [orderId]
     );
     // Generate invoice number
     const invoiceNumber = `INV${orderId}`;
+    
+    // Calculate tax totals from order items
+    let totalCGST = 0;
+    let totalSGST = 0;
+    let totalIGST = 0;
+    let totalTaxableValue = 0;
+
+    orderItems.forEach(item => {
+      const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+      const cgstRate = parseFloat(item.PROD_CGST || 0);
+      const sgstRate = parseFloat(item.PROD_SGST || 0);
+      const igstRate = parseFloat(item.PROD_IGST || 0);
+      
+      totalTaxableValue += itemTaxableValue;
+      totalCGST += (itemTaxableValue * cgstRate) / 100;
+      totalSGST += (itemTaxableValue * sgstRate) / 100;
+      totalIGST += (itemTaxableValue * igstRate) / 100;
+    });
+
+    const totalTaxAmount = totalCGST + totalSGST + totalIGST;
+    
     // Generate PDF and QR code
     const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ order, orderItems, invoiceNumber });
     // Insert into invoice_master
@@ -654,11 +711,11 @@ const placeOrderForCustomer = async (req, res) => {
         order.USER_ADDRESS || order.DELIVERY_ADDRESS,
         order.MOBILE,
         '', // INVM_CUST_GST
-        0, // INVM_TOT_CGST
-        0, // INVM_TOT_SGST
-        0, // INVM_TOT_IGST
+        totalCGST.toFixed(2), // INVM_TOT_CGST
+        totalSGST.toFixed(2), // INVM_TOT_SGST
+        totalIGST.toFixed(2), // INVM_TOT_IGST
         0, // INVM_TOT_DISCOUNT_AMOUNT
-        0, // INVM_TOT_TAX_AMOUNT
+        totalTaxAmount.toFixed(2), // INVM_TOT_TAX_AMOUNT
         order.ORDER_TOTAL,
         order.ORDER_TOTAL,
         'active',
@@ -670,10 +727,15 @@ const placeOrderForCustomer = async (req, res) => {
     const invoiceId = invoiceResult.insertId;
     // Insert into invoice_detail for each item
     for (const item of orderItems) {
+      const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+      const cgstAmount = (itemTaxableValue * parseFloat(item.PROD_CGST || 0)) / 100;
+      const sgstAmount = (itemTaxableValue * parseFloat(item.PROD_SGST || 0)) / 100;
+      const igstAmount = (itemTaxableValue * parseFloat(item.PROD_IGST || 0)) / 100;
+      
       await connection.query(
         `INSERT INTO invoice_detail (INVD_INVM_ID, INVD_PROD_ID, INVD_PROD_CODE, INVD_PROD_NAME, INVD_PROD_UNIT, INVD_QTY, INVD_HSN_CODE, INVD_MRP, INVD_SP, INVD_DISCOUNT_PERCENTAGE, INVD_DISCOUNT_AMOUNT, INVD_CGST, INVD_SGST, INVD_IGST, INVD_PROD_IMAGE_1, INVD_PROD_IMAGE_2, INVD_PROD_IMAGE_3, INVD_TAMOUNT, INVD_PROD_STATUS, CREATED_BY, UPDATED_BY, CREATED_DATE, UPDATED_DATE)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, 'A', ?, ?, NOW(), NOW())`,
-        [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 'A', ?, ?, NOW(), NOW())`,
+        [invoiceId, item.PROD_ID, item.PROD_CODE, item.PROD_NAME, item.PU_PROD_UNIT, item.QUANTITY, item.PROD_HSN_CODE, item.PROD_MRP, item.PROD_SP, cgstAmount.toFixed(2), sgstAmount.toFixed(2), igstAmount.toFixed(2), item.PROD_IMAGE_1, item.PROD_IMAGE_2, item.PROD_IMAGE_3, item.TOTAL_PRICE, req.user.USERNAME || 'system', req.user.USERNAME || 'system']
       );
     }
          // Create payment record in cust_payment table

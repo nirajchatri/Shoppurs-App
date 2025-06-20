@@ -15,14 +15,22 @@ const testOrderItems = [
     QUANTITY: 2,
     TOTAL_PRICE: 800.00,
     PROD_HSN_CODE: '6204',
-    PROD_MRP: 500.00
+    PROD_MRP: 500.00,
+    PROD_SP: 400.00,
+    PROD_CGST: 6,
+    PROD_SGST: 6,
+    PROD_IGST: 0
   },
   {
     PROD_NAME: 'Denim Jeans',
     QUANTITY: 1,
     TOTAL_PRICE: 700.00,
     PROD_HSN_CODE: '6203',
-    PROD_MRP: 850.00
+    PROD_MRP: 850.00,
+    PROD_SP: 700.00,
+    PROD_CGST: 6,
+    PROD_SGST: 6,
+    PROD_IGST: 0
   }
 ];
 

@@ -10,6 +10,7 @@ This document outlines the new customer creation APIs that allow administrators 
 - **Role-based Access**: Both admin and employees can create customers
 - **Password Management**: Auto-generated passwords with secure hashing
 - **Comprehensive Validation**: Mobile number, email, and data validation
+- **Store Management**: Mandatory store name for retailer profile creation
 
 ## Admin APIs
 
@@ -34,6 +35,7 @@ Authorization: Bearer <admin_token>
   "email": "john@example.com", // Optional, auto-generated if not provided
   "mobile": "9876543210",
   "password": "123456", // Optional, defaults to "123456"
+  "storeName": "John's General Store", // Mandatory
   "city": "Mumbai",
   "province": "Maharashtra", 
   "zip": "400001",
@@ -50,8 +52,8 @@ Authorization: Bearer <admin_token>
   "isDefaultAddress": true,
   
   // Retailer Location (Optional)
-  "lat": "19.0760",
-  "long": "72.8777"
+  "lat": "19.0760", // Optional
+  "long": "72.8777" // Optional
 }
 ```
 
@@ -68,7 +70,19 @@ Authorization: Bearer <admin_token>
       "MOBILE": 9876543210,
       "RET_ID": 45,
       "RET_CODE": "RET045",
-      "RET_TYPE": "Grocery"
+      "RET_TYPE": "Grocery",
+      "RET_NAME": "John Doe",
+      "RET_SHOP_NAME": "John's General Store",
+      "RET_MOBILE_NO": 9876543210,
+      "RET_ADDRESS": "123 Main Street",
+      "RET_PIN_CODE": "400001",
+      "RET_EMAIL_ID": "john@example.com",
+      "RET_COUNTRY": "India",
+      "RET_STATE": "Maharashtra",
+      "RET_CITY": "Mumbai",
+      "RET_LAT": "19.0760",
+      "RET_LONG": "72.8777",
+      "BARCODE_URL": "qr_9876543210_1703123456789.png"
     },
     "addresses": [
       {
@@ -107,6 +121,7 @@ Authorization: Bearer <admin_token>
   "email": "jane@example.com",
   "mobile": "9876543211",
   "password": "123456",
+  "storeName": "Jane's Corner Shop", // Mandatory
   "city": "Mumbai",
   "province": "Maharashtra",
   "zip": "400002",
@@ -135,8 +150,8 @@ Authorization: Bearer <admin_token>
     }
   ],
   
-  "lat": "19.0760",
-  "long": "72.8777"
+  "lat": "19.0760", // Optional
+  "long": "72.8777" // Optional
 }
 ```
 
@@ -153,7 +168,19 @@ Authorization: Bearer <admin_token>
       "MOBILE": 9876543211,
       "RET_ID": 46,
       "RET_CODE": "RET046",
-      "RET_TYPE": "Grocery"
+      "RET_TYPE": "Grocery",
+      "RET_NAME": "Jane Smith",
+      "RET_SHOP_NAME": "Jane's Corner Shop",
+      "RET_MOBILE_NO": 9876543211,
+      "RET_ADDRESS": "789 Primary Street",
+      "RET_PIN_CODE": "400002",
+      "RET_EMAIL_ID": "jane@example.com",
+      "RET_COUNTRY": "India",
+      "RET_STATE": "Maharashtra",
+      "RET_CITY": "Mumbai",
+      "RET_LAT": "19.0760",
+      "RET_LONG": "72.8777",
+      "BARCODE_URL": "qr_9876543211_1703123456789.png"
     },
     "addresses": [
       {
@@ -193,7 +220,19 @@ Authorization: Bearer <admin_token>
       "EMAIL": "john@example.com",
       "MOBILE": 9876543210,
       "RET_ID": 45,
-      "RETAILER_NAME": "John Doe",
+      "RET_CODE": "RET045",
+      "RET_TYPE": "Grocery",
+      "RET_NAME": "John Doe",
+      "RET_SHOP_NAME": "John's General Store",
+      "RET_MOBILE_NO": 9876543210,
+      "RET_ADDRESS": "123 Main Street",
+      "RET_PIN_CODE": "400001",
+      "RET_EMAIL_ID": "john@example.com",
+      "RET_COUNTRY": "India",
+      "RET_STATE": "Maharashtra",
+      "RET_CITY": "Mumbai",
+      "RET_LAT": "19.0760",
+      "RET_LONG": "72.8777",
       "BARCODE_URL": "qr_9876543210_1703123456789.png"
     },
     "addresses": [...],
@@ -293,8 +332,16 @@ Same functionality as admin with additional fields:
 
 When a customer is created, the system automatically:
 - Generates a unique retailer code (RET001, RET002, etc.)
-- Creates a retailer profile in `retailer_info` table
-- Sets retailer type as "Grocery"
+- Creates a retailer profile in `retailer_info` table with complete information:
+  - `RET_NAME`: Customer's username
+  - `RET_SHOP_NAME`: Mandatory store name provided during creation
+  - `RET_TYPE`: Set as "Grocery"
+  - `RET_MOBILE_NO`: Customer's mobile number
+  - `RET_ADDRESS`: Customer's primary address
+  - `RET_EMAIL_ID`: Customer's email
+  - `RET_COUNTRY`, `RET_STATE`, `RET_CITY`: Location details
+  - `RET_LAT`, `RET_LONG`: Optional coordinates if provided
+  - `BARCODE_URL`: Generated QR code filename
 - Generates a QR code for the retailer's mobile number
 - Stores QR code in `/uploads/retailers/qrcode/` directory
 
@@ -319,7 +366,7 @@ When a customer is created, the system automatically:
 ```json
 {
   "success": false,
-  "message": "Username and mobile number are required"
+  "message": "Username, mobile number, and store name are required"
 }
 ```
 
@@ -328,6 +375,14 @@ When a customer is created, the system automatically:
 {
   "success": false,
   "message": "Customer already exists with this email or mobile number"
+}
+```
+
+### 400 Bad Request - Missing Store Name
+```json
+{
+  "success": false,
+  "message": "Store name is required for retailer profile creation"
 }
 ```
 
@@ -362,13 +417,37 @@ When a customer is created, the system automatically:
 
 1. **user_info**: Customer information storage
 2. **customer_address**: Customer addresses (new/existing table)
-3. **retailer_info**: Auto-created retailer profiles
+3. **retailer_info**: Auto-created retailer profiles with complete structure:
+   - `RET_ID`: Primary key
+   - `RET_CODE`: Unique retailer code (RET001, RET002, etc.)
+   - `RET_TYPE`: Retailer type (default: "Grocery")
+   - `RET_NAME`: Retailer name (customer's username)
+   - `RET_SHOP_NAME`: Store name (mandatory field)
+   - `RET_MOBILE_NO`: Mobile number
+   - `RET_ADDRESS`: Primary address
+   - `RET_PIN_CODE`: PIN code
+   - `RET_EMAIL_ID`: Email address
+   - `RET_PHOTO`: Profile photo (optional)
+   - `RET_COUNTRY`: Country
+   - `RET_STATE`: State
+   - `RET_CITY`: City
+   - `RET_GST_NO`: GST number (optional)
+   - `RET_LAT`: Latitude (optional)
+   - `RET_LONG`: Longitude (optional)
+   - `RET_DEL_STATUS`: Deletion status
+   - `CREATED_DATE`: Creation timestamp
+   - `UPDATED_DATE`: Update timestamp
+   - `CREATED_BY`: Created by user
+   - `UPDATED_BY`: Updated by user
+   - `SHOP_OPEN_STATUS`: Shop open status
+   - `BARCODE_URL`: QR code filename
 
 ### New Fields Used
 
 - `is_otp_verify`: Set to 1 for admin/employee created customers
 - `CREATED_BY`: Tracks who created the customer
 - `BARCODE_URL`: QR code filename for retailer
+- `RET_SHOP_NAME`: Mandatory store name for retailer profile
 
 ## Testing Examples
 
@@ -376,7 +455,7 @@ When a customer is created, the system automatically:
 
 1. Set authorization header with admin/employee token
 2. Use POST method with appropriate endpoint
-3. Send JSON payload with required fields
+3. Send JSON payload with required fields (including store name)
 4. Verify customer and retailer creation in response
 
 ### Verify QR Code Generation
@@ -393,6 +472,7 @@ When a customer is created, the system automatically:
 4. **Address Flexibility**: Support for multiple addresses per customer
 5. **Integration Ready**: QR codes enable easy mobile app integration
 6. **Security**: Proper validation and error handling
+7. **Store Management**: Mandatory store name ensures complete retailer profiles
 
 ## Deployment Notes
 
@@ -401,5 +481,6 @@ When a customer is created, the system automatically:
 3. Test QR code generation functionality
 4. Validate database permissions for all tables
 5. Test with both admin and employee tokens
+6. Validate store name requirement in API implementations
 
-This comprehensive customer creation system provides a robust foundation for managing customers while automatically maintaining retailer profiles for seamless integration with existing order and payment systems. 
+This comprehensive customer creation system provides a robust foundation for managing customers while automatically maintaining complete retailer profiles with store information for seamless integration with existing order and payment systems.

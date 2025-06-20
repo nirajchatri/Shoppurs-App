@@ -100,70 +100,72 @@ async function generateInvoicePDF({ order, orderItems, invoiceNumber }) {
     doc.moveTo(leftMargin, y).lineTo(pageWidth - rightMargin, y).stroke();
     y += 5;
     
-    // Calculate column positions for full width usage
+    // Calculate column positions with better spacing - adjust based on content needs
     const col1 = leftMargin; // Item Name
-    const col2 = leftMargin + contentWidth * 0.45; // Qty
-    const col3 = leftMargin + contentWidth * 0.55; // Net Amt
-    const col4 = leftMargin + contentWidth * 0.65; // HSN
-    const col5 = leftMargin + contentWidth * 0.75; // MRP
-    const col6 = leftMargin + contentWidth * 0.85; // CGST%
-    const col7 = leftMargin + contentWidth * 0.93; // SGST%
+    const col2 = leftMargin + contentWidth * 0.35; // HSN Code  
+    const col3 = leftMargin + contentWidth * 0.45; // MRP
+    const col4 = leftMargin + contentWidth * 0.55; // SP
+    const col5 = leftMargin + contentWidth * 0.65; // CGST%
+    const col6 = leftMargin + contentWidth * 0.74; // SGST%
+    const col7 = leftMargin + contentWidth * 0.83; // QTY
+    const col8 = leftMargin + contentWidth * 0.90; // NET AMOUNT
     
-    doc.fontSize(10).fillColor('black');
+    doc.fontSize(9).fillColor('black');
     doc.text('Item Name', col1, y);
-    doc.text('Qty', col2, y);
-    doc.text('Net Amt', col3, y);
-    doc.text('HSN', col4, y);
-    doc.text('MRP', col5, y);
-    doc.text(settings.tax_label_cgst + '%', col6, y);
-    doc.text(settings.tax_label_sgst + '%', col7, y);
+    doc.text('HSN Code', col2, y);
+    doc.text('MRP', col3, y);
+    doc.text('SP', col4, y);
+    doc.text('CGST%', col5, y);
+    doc.text('SGST%', col6, y);
+    doc.text('QTY', col7, y);
+    doc.text('NET AMT', col8, y);
     y += 15;
     doc.moveTo(leftMargin, y).lineTo(pageWidth - rightMargin, y).stroke();
-    y += 5;
+    y += 8;
+
+    // Calculate totals for tax calculation
+    let totalTaxableValue = 0;
+    let totalCGST = 0;
+    let totalSGST = 0;
+    let totalIGST = 0;
 
     // --- Item Table Rows ---
     orderItems.forEach(item => {
-      doc.fontSize(9).text(item.PROD_NAME, col1, y, { width: contentWidth * 0.4 });
-      doc.text(item.QUANTITY, col2, y);
-      doc.text(`${settings.default_currency}${item.TOTAL_PRICE}`, col3, y);
-      doc.text(item.PROD_HSN_CODE || '', col4, y);
-      doc.text(`${settings.default_currency}${item.PROD_MRP || ''}`, col5, y);
-      doc.text('6', col6, y);
-      doc.text('6', col7, y);
-      y += 15;
-    });
-    y += 5;
-    doc.fontSize(9).text('Total Amount', col2, y);
-    doc.text(`${settings.default_currency}${order.ORDER_TOTAL || ''}`, col3, y);
-    y += 13;
-    doc.text('Gross Total', col2, y);
-    doc.text(`${settings.default_currency}${order.ORDER_TOTAL || ''}`, col3, y);
-    y += 20;
+      const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+      const cgstRate = parseFloat(item.PROD_CGST || 0);
+      const sgstRate = parseFloat(item.PROD_SGST || 0);
+      const igstRate = parseFloat(item.PROD_IGST || 0);
+      
+      const cgstAmount = (itemTaxableValue * cgstRate) / 100;
+      const sgstAmount = (itemTaxableValue * sgstRate) / 100;
+      const igstAmount = (itemTaxableValue * igstRate) / 100;
+      
+      totalTaxableValue += itemTaxableValue;
+      totalCGST += cgstAmount;
+      totalSGST += sgstAmount;
+      totalIGST += igstAmount;
 
-    // --- GST Summary ---
-    const gstCol1 = leftMargin;
-    const gstCol2 = leftMargin + contentWidth * 0.25;
-    const gstCol3 = leftMargin + contentWidth * 0.45;
-    const gstCol4 = leftMargin + contentWidth * 0.65;
+      doc.fontSize(8).text(item.PROD_NAME, col1, y, { width: contentWidth * 0.32 });
+      doc.text(item.PROD_HSN_CODE || '', col2, y);
+      doc.text(`${settings.default_currency}${parseFloat(item.PROD_MRP || 0).toFixed(2)}`, col3, y);
+      doc.text(`${settings.default_currency}${parseFloat(item.PROD_SP || 0).toFixed(2)}`, col4, y);
+      doc.text(cgstRate.toFixed(1), col5, y);
+      doc.text(sgstRate.toFixed(1), col6, y);
+      doc.text(item.QUANTITY, col7, y);
+      doc.text(`${settings.default_currency}${parseFloat(item.TOTAL_PRICE || 0).toFixed(2)}`, col8, y);
+      y += 18;
+    });
     
-    doc.fontSize(10).text('GST', gstCol1, y);
-    doc.text('Taxable Value', gstCol2, y);
-    doc.text('Tax(%)', gstCol3, y);
-    doc.text('Tax Amt', gstCol4, y);
-    y += 13;
-    doc.fontSize(9).text(settings.tax_label_cgst, gstCol1, y);
-    doc.text('1,321.39', gstCol2, y);
-    doc.text('6', gstCol3, y);
-    doc.text('79.28', gstCol4, y);
-    y += 13;
-    doc.text(settings.tax_label_sgst, gstCol1, y);
-    doc.text('1,321.39', gstCol2, y);
-    doc.text('6', gstCol3, y);
-    doc.text('79.28', gstCol4, y);
-    y += 13;
-    doc.text('Total Tax', gstCol3, y);
-    doc.text('243.37', gstCol4, y);
-    y += 20;
+    // Add line separator before totals
+    doc.moveTo(leftMargin, y).lineTo(pageWidth - rightMargin, y).stroke();
+    y += 8;
+    
+    doc.fontSize(9).text('Total Amount', col6, y);
+    doc.text(`${settings.default_currency}${parseFloat(order.ORDER_TOTAL || 0).toFixed(2)}`, col8, y);
+    y += 15;
+    doc.text('Gross Total', col6, y);
+    doc.text(`${settings.default_currency}${parseFloat(order.ORDER_TOTAL || 0).toFixed(2)}`, col8, y);
+    y += 25;
 
     // --- Customer and Store Details ---
     doc.fontSize(11).fillColor('#1565c0').text('CUSTOMER DETAILS', leftMargin, y);

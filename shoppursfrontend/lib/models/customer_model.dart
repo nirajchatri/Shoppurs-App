@@ -210,6 +210,7 @@ class CreateCustomerRequest {
   final String? email;
   final String mobile;
   final String? password;
+  final String storeName;
   final String city;
   final String province;
   final String zip;
@@ -231,6 +232,7 @@ class CreateCustomerRequest {
     this.email,
     required this.mobile,
     this.password,
+    required this.storeName,
     required this.city,
     required this.province,
     required this.zip,
@@ -254,6 +256,7 @@ class CreateCustomerRequest {
       if (email != null) 'email': email,
       'mobile': mobile,
       if (password != null) 'password': password,
+      'storeName': storeName,
       'city': city,
       'province': province,
       'zip': zip,

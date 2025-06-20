@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/customer_model.dart';
 import '../../widgets/error_message_widget.dart';
+import '../../widgets/location_picker_map.dart';
 
 class CreateCustomerPage extends StatefulWidget {
   const CreateCustomerPage({Key? key}) : super(key: key);
@@ -21,10 +23,13 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _storeNameController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _provinceController = TextEditingController();
   final TextEditingController _zipController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _longController = TextEditingController();
 
   // Address mode - single or multiple
   bool _multipleAddresses = false;
@@ -34,6 +39,7 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
   bool _isLoading = false;
   String? _error;
   String? _userRole;
+  String _selectedLocationText = '';
 
   @override
   void initState() {
@@ -51,10 +57,13 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
     _emailController.dispose();
     _mobileController.dispose();
     _passwordController.dispose();
+    _storeNameController.dispose();
     _cityController.dispose();
     _provinceController.dispose();
     _zipController.dispose();
     _addressController.dispose();
+    _latController.dispose();
+    _longController.dispose();
     super.dispose();
   }
 
@@ -79,6 +88,26 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
     }
   }
 
+  Future<void> _openLocationPicker() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationPickerMap(
+          initialLat: _latController.text.isNotEmpty ? double.tryParse(_latController.text) : null,
+          initialLng: _longController.text.isNotEmpty ? double.tryParse(_longController.text) : null,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _latController.text = result['latitude'].toString();
+        _longController.text = result['longitude'].toString();
+        _selectedLocationText = result['address'] ?? 'Location Selected';
+      });
+    }
+  }
+
   Future<void> _createCustomer() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -96,6 +125,16 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
         _error = 'Please enter a valid email address';
       });
       return;
+    }
+
+    // Validate location selection for single address mode
+    if (!_multipleAddresses) {
+      if (_latController.text.trim().isEmpty || _longController.text.trim().isEmpty) {
+        setState(() {
+          _error = 'Please select a location on the map';
+        });
+        return;
+      }
     }
 
     setState(() {
@@ -124,10 +163,13 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
           mobile: _mobileController.text.trim(),
           password: _passwordController.text.trim().isEmpty ? '123456' : _passwordController.text.trim(),
+          storeName: _storeNameController.text.trim(),
           city: _cityController.text.trim(),
           province: _provinceController.text.trim(),
           zip: _zipController.text.trim(),
           address: _addressController.text.trim(),
+          lat: _latController.text.trim(),
+          long: _longController.text.trim(),
           addresses: _addresses.map((addr) => CustomerAddressRequest(
             address: addr.addressController.text.trim(),
             city: addr.cityController.text.trim(),
@@ -148,10 +190,13 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
           mobile: _mobileController.text.trim(),
           password: _passwordController.text.trim().isEmpty ? '123456' : _passwordController.text.trim(),
+          storeName: _storeNameController.text.trim(),
           city: _cityController.text.trim(),
           province: _provinceController.text.trim(),
           zip: _zipController.text.trim(),
           address: _addressController.text.trim(),
+          lat: _latController.text.trim(),
+          long: _longController.text.trim(),
           addressDetails: _addressController.text.trim(),
           addressCity: _cityController.text.trim(),
           addressState: _provinceController.text.trim(),
@@ -242,12 +287,33 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
                 prefixText: '+91 ',
               ),
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter mobile number';
                 }
                 if (!_customerService.isValidMobile(value.trim())) {
                   return 'Enter valid 10-digit mobile number starting with 6-9';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Store Name
+            TextFormField(
+              controller: _storeNameController,
+              decoration: const InputDecoration(
+                labelText: 'Store Name *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.store),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter store name';
                 }
                 return null;
               },
@@ -412,6 +478,10 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
                 prefixIcon: Icon(Icons.pin_drop),
               ),
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter PIN code';
@@ -421,6 +491,55 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+
+            // Location Picker
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: InkWell(
+                onTap: _openLocationPicker,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.map, color: Color(0xFF9B1B1B)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedLocationText.isEmpty 
+                                  ? 'Select Location *' 
+                                  : _selectedLocationText,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _selectedLocationText.isEmpty 
+                                    ? Colors.grey[600] 
+                                    : Colors.black87,
+                              ),
+                            ),
+                            if (_latController.text.isNotEmpty && _longController.text.isNotEmpty)
+                              Text(
+                                'Lat: ${_latController.text}, Lng: ${_longController.text}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),

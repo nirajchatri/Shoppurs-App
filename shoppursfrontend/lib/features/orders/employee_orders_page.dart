@@ -578,7 +578,6 @@ class _EmployeeOrdersPageState extends State<EmployeeOrdersPage>
                   children: [
                     _buildSummaryItem('Total Expenses', '₹${summary['total_expenses'] ?? '0.00'}'),
                     _buildSummaryItem('Completion Rate', '${summary['completion_rate']}%'),
-                    _buildSummaryItem('Data Range', _getDataRangeText()),
                   ],
                 ),
               ],

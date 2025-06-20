@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
 import '../../config/api_config.dart';
 
@@ -207,6 +208,10 @@ class _LoginPageState extends State<LoginPage> {
                           child: TextFormField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                            ],
                             decoration: const InputDecoration(
                               hintText: '10 digit mobile number',
                               hintStyle: TextStyle(

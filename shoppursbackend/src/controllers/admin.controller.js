@@ -2450,8 +2450,8 @@ const getEmployeeDwrDetails = async (req, res) => {
 
     const employee = employeeCheck[0];
 
-    // Build date filter - limit to last 14 days
-    let dateFilter = 'AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)';
+    // Build date filter - limit to last 30 days
+    let dateFilter = 'AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
     const queryParams = [userId];
     
     if (date) {
@@ -2464,19 +2464,19 @@ const getEmployeeDwrDetails = async (req, res) => {
         });
       }
       
-      // Check if requested date is within last 14 days
+      // Check if requested date is within last 30 days
       const requestedDate = new Date(date);
       const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 30);
       
       if (requestedDate < fourteenDaysAgo) {
         return res.status(400).json({
           success: false,
-          message: 'Date filter is limited to last 14 days only'
+          message: 'Date filter is limited to last 30 days only'
         });
       }
       
-      dateFilter = 'AND DATE(DWR_DATE) = ? AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)';
+      dateFilter = 'AND DATE(DWR_DATE) = ? AND DWR_DATE >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
       queryParams.push(date);
     }
 
@@ -2503,7 +2503,7 @@ const getEmployeeDwrDetails = async (req, res) => {
       [...queryParams, parseInt(limit), offset]
     );
 
-    // Get total count for pagination (with 14-day limit)
+    // Get total count for pagination (with 30-day limit)
     const [countResult] = await db.promise().query(
       `SELECT COUNT(*) as total
        FROM dwr_detail d
@@ -2515,7 +2515,7 @@ const getEmployeeDwrDetails = async (req, res) => {
     const totalRecords = countResult[0].total;
     const totalPages = Math.ceil(totalRecords / limit);
 
-    // Get summary statistics (with 14-day limit)
+    // Get summary statistics (with 30-day limit)
     const [summaryStats] = await db.promise().query(
       `SELECT 
         COUNT(*) as total_dwr_entries,
@@ -2560,7 +2560,7 @@ const getEmployeeDwrDetails = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Employee DWR details fetched successfully (Last 14 days)',
+      message: 'Employee DWR details fetched successfully (Last 30 days)',
       data: {
         employee: {
           user_id: employee.USER_ID,
@@ -2590,7 +2590,7 @@ const getEmployeeDwrDetails = async (req, res) => {
         filters: {
           date_filter: date || null,
           employee_id: userId,
-          data_limit: 'Last 14 days only'
+          data_limit: 'Last 30 days only'
         }
       }
     });
