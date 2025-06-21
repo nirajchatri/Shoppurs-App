@@ -69,7 +69,7 @@ app.use('/uploads', express.static('uploads'));
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    message: 'AnwarFood API is running',
+    message: 'ShoppursShop API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
@@ -79,7 +79,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Welcome to AnwarFood API',
+    message: 'Welcome to ShoppursShop API',
     version: '1.0.0'
   });
 });

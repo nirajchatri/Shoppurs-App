@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: anwarfood-backend
+    name: ShoppursShop-backend
     env: node
     plan: free
     buildCommand: npm install

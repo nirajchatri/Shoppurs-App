@@ -1,6 +1,6 @@
 {
-    "name": "shoppursfood",
-    "short_name": "shoppursfood",
+    "name": "shoppursshop",
+    "short_name": "shoppursshop",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -1,6 +1,6 @@
 # Admin API Documentation
 
-This document provides comprehensive information about the admin-only APIs for the AnwarFood backend system.
+This document provides comprehensive information about the admin-only APIs for the ShoppursShop backend system.
 
 ## Authentication
 
@@ -21,7 +21,7 @@ node create-admin.js
 ```
 
 This will create an admin user with the following credentials:
-- **Email**: admin@anwarfood.com
+- **Email**: admin@ShoppursShop.com
 - **Password**: admin123
 - **Mobile**: 9999999999
 

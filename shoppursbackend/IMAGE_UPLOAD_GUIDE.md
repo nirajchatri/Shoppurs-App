@@ -1,6 +1,6 @@
 # Image Upload Middleware Guide
 
-This document explains how to use the three image upload middlewares created for the AnwarFood backend.
+This document explains how to use the three image upload middlewares created for the ShoppursShop backend.
 
 ## 📁 Folder Structure
 

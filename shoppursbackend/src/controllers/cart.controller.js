@@ -670,7 +670,7 @@ const placeOrder = async (req, res) => {
       `, [
         transactionId, // PAYMENT_TRANSACTION_ID
         paymentMethod === 'online' ? 'online_payment' : 'cash_on_delivery', // PAYMENT_TRANSACTION_TYPE
-        'ANWAR_FOOD_001', // PAYMENT_MERCHANT_ID (default merchant ID)
+        'ShoppursShop_001', // PAYMENT_MERCHANT_ID (default merchant ID)
         orderTotal, // PAYMENT_AMOUNT
         paymentMethod || 'cod', // PAYMENT_PAYMENT_METHOD
         paymentMethod || 'cod', // PAYMENT_PAYMENT_MODE

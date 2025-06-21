@@ -1,4 +1,4 @@
-# shoppursFood Mobile App - APK Installation Guide
+# shoppursshop Mobile App - APK Installation Guide
 
 ## 📱 APK Files Generated
 
@@ -51,7 +51,7 @@ The app is configured to connect to: **https://app.shoppurs.in**
    - Try opening a web browser and visiting https://app.shoppurs.in
 
 2. **Clear App Data:**
-   - Go to Settings > Apps > shoppursFood
+   - Go to Settings > Apps > shoppursshop
    - Tap "Storage" > "Clear Data"
    - Restart the app
 
@@ -102,7 +102,7 @@ To test if the API is working:
 
 ## 🆔 App Details
 
-- **Package Name:** com.shoppursfood.app
+- **Package Name:** com.shoppursshop.app
 - **Version:** 1.0.0
 - **Version Code:** 1
 

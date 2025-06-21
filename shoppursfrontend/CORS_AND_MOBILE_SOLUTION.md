@@ -9,7 +9,7 @@ Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://
 
 ### ✅ Solution Applied:
 
-1. **Updated Backend CORS Configuration** (`shoppursfoodbackend/src/app.js`):
+1. **Updated Backend CORS Configuration** (`shoppursshopbackend/src/app.js`):
    ```javascript
    const corsOptions = {
      origin: [
@@ -36,7 +36,7 @@ Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://
 
 1. **Deploy Updated Backend:**
    ```bash
-   cd shoppursfoodbackend
+   cd shoppursshopbackend
    git add .
    git commit -m "Fix CORS for Flutter web development"
    git push
@@ -48,7 +48,7 @@ Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://
 
 3. **Test CORS Fix:**
    ```bash
-   cd shoppursfoodfrontend
+   cd shoppursshop
    flutter run -d chrome
    ```
 
@@ -92,10 +92,10 @@ Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://
 
 1. **Check Device Internet:**
    - Open browser and visit https://app.shoppurs.in
-   - Should show: `{"success":true,"message":"Welcome to shoppursFood API","version":"1.0.0"}`
+   - Should show: `{"success":true,"message":"Welcome to shoppursshop API","version":"1.0.0"}`
 
 2. **Clear App Data:**
-   - Settings → Apps → shoppursFood → Storage → Clear Data
+   - Settings → Apps → shoppursshop → Storage → Clear Data
 
 3. **Check Network Type:**
    - Try switching between WiFi and mobile data
@@ -105,7 +105,7 @@ Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://
    - Install `app-debug.apk` for detailed logs
    - Use `adb logcat` to see error messages
 
-#### If App Shows "Cannot Connect to shoppursFood Servers":
+#### If App Shows "Cannot Connect to shoppursshop Servers":
 
 1. **Check Server Status:**
    - Visit https://app.shoppurs.in/health
@@ -153,7 +153,7 @@ Startup Connectivity Status: Connected successfully
 ```json
 {
   "success": true,
-  "message": "shoppursFood API is running",
+  "message": "shoppursshop API is running",
   "timestamp": "2025-05-27T...",
   "environment": "production"
 }
@@ -162,13 +162,13 @@ Startup Connectivity Status: Connected successfully
 ## 🔄 Deployment Workflow
 
 ### For Backend Updates:
-1. Update code in `shoppursfoodbackend/`
+1. Update code in `shoppursshopbackend/`
 2. Commit and push to repository
 3. Render auto-deploys the changes
 4. Test endpoints manually
 
 ### For Frontend Updates:
-1. Update code in `shoppursfoodfrontend/`
+1. Update code in `shoppursshop/`
 2. Run `flutter clean && flutter pub get`
 3. Build APK: `flutter build apk --release`
 4. Test on device before distribution

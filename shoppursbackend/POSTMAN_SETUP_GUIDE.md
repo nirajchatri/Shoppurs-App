@@ -1,10 +1,10 @@
-# Postman Setup Guide for AnwarFood Admin APIs
+# Postman Setup Guide for ShoppursShop Admin APIs
 
 This guide will help you set up and use the Postman collection for testing all admin APIs.
 
 ## 📁 **Files Provided**
 
-- `AnwarFood_Admin_APIs.postman_collection.json` - Complete Postman collection with all 13 admin APIs
+- `ShoppursShop_Admin_APIs.postman_collection.json` - Complete Postman collection with all 13 admin APIs
 - `ADMIN_API_DOCUMENTATION.md` - Detailed API documentation
 
 ## 🚀 **Quick Setup**
@@ -13,13 +13,13 @@ This guide will help you set up and use the Postman collection for testing all a
 
 1. Open Postman
 2. Click on **Import** button (top left)
-3. Drag and drop `AnwarFood_Admin_APIs.postman_collection.json` file
+3. Drag and drop `ShoppursShop_Admin_APIs.postman_collection.json` file
 4. Click **Import**
 
 ### Step 2: Set Environment Variables
 
 1. Click on **Environments** in the sidebar
-2. Create a new environment called "AnwarFood Admin"
+2. Create a new environment called "ShoppursShop Admin"
 3. Add the following variables:
 
 | Variable Name | Initial Value | Current Value |
@@ -36,7 +36,7 @@ This guide will help you set up and use the Postman collection for testing all a
 
 ### Step 3: Select Environment
 
-- In the top-right corner of Postman, select "AnwarFood Admin" environment
+- In the top-right corner of Postman, select "ShoppursShop Admin" environment
 
 ## 🔐 **Authentication Setup**
 
@@ -44,7 +44,7 @@ This guide will help you set up and use the Postman collection for testing all a
 
 1. **Start your server** first:
    ```bash
-   cd anwarfoodbackend
+   cd ShoppursShopbackend
    npm start
    # or
    npm run dev
@@ -218,7 +218,7 @@ base_url: "http://your-staging-url.com:8080"
 
 ### Debug Steps:
 
-1. **Check Environment**: Ensure "AnwarFood Admin" environment is selected
+1. **Check Environment**: Ensure "ShoppursShop Admin" environment is selected
 2. **Verify Variables**: Check that all variables have correct values
 3. **Test Login**: Always run Admin Login first
 4. **Check Server**: Ensure backend server is running

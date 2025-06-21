@@ -22,7 +22,7 @@ async function createAdminUser() {
         UL_ID, USERNAME, EMAIL, MOBILE, PASSWORD, CITY, PROVINCE, ZIP, ADDRESS, 
         CREATED_DATE, USER_TYPE, ISACTIVE, is_otp_verify
       ) VALUES (
-        1, 'admin', 'admin@anwarfood.com', 9999999999, ?, 'Admin City', 'Admin Province', '000000', 'Admin Address', 
+        1, 'admin', 'admin@ShoppursShop.com', 9999999999, ?, 'Admin City', 'Admin Province', '000000', 'Admin Address', 
         NOW(), 'admin', 'Y', 1
       )
     `;
@@ -35,7 +35,7 @@ async function createAdminUser() {
         }
       } else {
         console.log('Admin user created successfully!');
-        console.log('Email: admin@anwarfood.com');
+        console.log('Email: admin@ShoppursShop.com');
         console.log('Password: admin123');
         console.log('Mobile: 9999999999');
       }

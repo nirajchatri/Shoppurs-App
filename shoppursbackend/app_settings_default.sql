@@ -33,7 +33,7 @@ INSERT INTO `app_settings` (
   `default_currency`, `tax_label_cgst`, `tax_label_sgst`, `payment_terms_text`
 ) 
 SELECT 
-  'Anwar Food', '9810162596', 'shop.westdelhi@shoppurs.in', 
+  'Shoppurs Shop', '9810162596', 'shop.westdelhi@shoppurs.in', 
   'Areeva Products & Services Pvt. Ltd.',
   'Hari Nagar, New Delhi, Delhi 110058, India',
   '07AAPCA4055P1Z3',

@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "admin-apis-collection-v1",
-		"name": "AnwarFood Admin APIs",
-		"description": "Complete collection of admin-only APIs for AnwarFood backend system. All endpoints require admin authentication.",
+		"name": "ShoppursShop Admin APIs",
+		"description": "Complete collection of admin-only APIs for ShoppursShop backend system. All endpoints require admin authentication.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "admin-apis"
 	},

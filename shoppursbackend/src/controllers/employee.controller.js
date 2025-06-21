@@ -754,7 +754,7 @@ const placeOrderForCustomer = async (req, res) => {
      `, [
        transactionId, // PAYMENT_TRANSACTION_ID
        'employee_order', // PAYMENT_TRANSACTION_TYPE
-       'ANWAR_FOOD_001', // PAYMENT_MERCHANT_ID (default merchant ID)
+       'ShoppursShop_001', // PAYMENT_MERCHANT_ID (default merchant ID)
        orderTotal, // PAYMENT_AMOUNT
        'cod', // PAYMENT_PAYMENT_METHOD
        'cod', // PAYMENT_PAYMENT_MODE
