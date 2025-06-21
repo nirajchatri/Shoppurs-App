@@ -42,6 +42,10 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
   String? _selectedCity;
   String _shopOpenStatus = 'Y';
   
+  // Add manual city entry controller
+  final _manualCityController = TextEditingController();
+  bool _isManualCityEntry = false;
+  
   // Profile photo variables
   File? _selectedImage;
   String? _currentPhotoUrl;
@@ -158,9 +162,11 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
       if (_selectedState != null && _citiesByState.containsKey(_selectedState)) {
         final cities = _citiesByState[_selectedState!]!;
         _selectedCity = data['RET_CITY'];
-        // If the city doesn't exist in our list for this state, use the first city
+        // If the city doesn't exist in our list for this state, treat it as manual entry
         if (_selectedCity == null || !cities.contains(_selectedCity)) {
-          _selectedCity = cities.first;
+          _selectedCity = 'Others';
+          _isManualCityEntry = true;
+          _manualCityController.text = data['RET_CITY'] ?? '';
         }
       }
       
@@ -253,7 +259,7 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
           // Location fields
           'RET_COUNTRY': _selectedCountry ?? 'India',
           'RET_STATE': _selectedState ?? '',
-          'RET_CITY': _selectedCity ?? '',
+          'RET_CITY': _isManualCityEntry ? _manualCityController.text : (_selectedCity ?? ''),
           'RET_LAT': _currentPosition.latitude.toString(),
           'RET_LONG': _currentPosition.longitude.toString(),
           
@@ -307,7 +313,7 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
           employeeFields['RET_PIN_CODE'] = _pinCodeController.text;
         }
         if (_selectedCity != null && _selectedCity!.isNotEmpty) {
-          employeeFields['RET_CITY'] = _selectedCity!;
+          employeeFields['RET_CITY'] = _isManualCityEntry ? _manualCityController.text : _selectedCity!;
         }
         if (_selectedState != null && _selectedState!.isNotEmpty) {
           employeeFields['RET_STATE'] = _selectedState!;
@@ -551,6 +557,7 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
     _mobileController.dispose();
     _retailerCodeController.dispose();
     _retailerTypeController.dispose();
+    _manualCityController.dispose();
     super.dispose();
   }
 
@@ -813,6 +820,8 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
                             setState(() {
                               _selectedState = value;
                               _selectedCity = _citiesByState[value]?.first;
+                              _isManualCityEntry = false;
+                              _manualCityController.clear();
                             });
                           }
                         },
@@ -831,16 +840,27 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
                             labelText: 'City',
                             border: OutlineInputBorder(),
                           ),
-                          items: (_citiesByState[_selectedState!] ?? [])
-                              .map((city) => DropdownMenuItem<String>(
-                                    value: city,
-                                    child: Text(city),
-                                  ))
-                              .toList(),
+                          items: [
+                            // Add existing cities
+                            ...(_citiesByState[_selectedState!] ?? [])
+                                .map((city) => DropdownMenuItem<String>(
+                                      value: city,
+                                      child: Text(city),
+                                    )),
+                            // Add "Others" option
+                            const DropdownMenuItem<String>(
+                              value: 'Others',
+                              child: Text('Others (Enter manually)'),
+                            ),
+                          ],
                           onChanged: (value) {
                             if (value != null) {
                               setState(() {
                                 _selectedCity = value;
+                                _isManualCityEntry = value == 'Others';
+                                if (!_isManualCityEntry) {
+                                  _manualCityController.clear();
+                                }
                               });
                             }
                           },
@@ -851,6 +871,24 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
                             return null;
                           },
                         ),
+                      // Manual city entry field
+                      if (_isManualCityEntry) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _manualCityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Enter City Name',
+                            border: OutlineInputBorder(),
+                            hintText: 'e.g., Noida, Gurgaon, etc.',
+                          ),
+                          validator: (value) {
+                            if (_isManualCityEntry && (value == null || value.isEmpty)) {
+                              return 'Please enter city name';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _addressController,
