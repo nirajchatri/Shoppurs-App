@@ -20,12 +20,12 @@ async function sendVerificationOTP(phone) {
   const url = 'https://cpaas.messagecentral.com/verification/v3/send';
 
   const headers = {
-    authToken: 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJDLURFQkUyQjY4OTM4NTRBRCIsImlhdCI6MTcyMjMyNDU4MCwiZXhwIjoxODgwMDA0NTgwfQ.ihHWg1LXsk1WCjmYiCb0fA6sYrbqUORZjsw-0kr90w662ZlW7UCbb_O5GWx9_7gnzWdTA3zoGgmc1p2tQ2B4mg'
+    authToken: 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJDLTBGNDQxMjBEODcyQzQ0NiIsImlhdCI6MTc1MDQzNDA0NiwiZXhwIjoxOTA4MTE0MDQ2fQ.EhMOT_hN6-BgNRd5Yk21qTO8v1VvoH3wNab2jSMzYagEF0JiNbthp1qTFJiZ6RLetmm_HqAyvPMv0GyRV2P3mw'
   };
 
   const params = {
     countryCode: '91',
-    customerId: 'C-DEBE2B6893854AD',
+    customerId: 'C-0F44120D872C446',
     flowType: 'SMS',
     mobileNumber: phone
   };
@@ -53,14 +53,14 @@ async function validateOTP(phone, verification_code, otp) {
   const url = 'https://cpaas.messagecentral.com/verification/v3/validateOtp';
 
   const headers = {
-    authToken: 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJDLUZBNTY5QzEzODY0QjQ5OSIsImlhdCI6MTcyMDY3NzcwOSwiZXhwIjoxODc4MzU3NzA5fQ.IKzKR57hg8vdCQux-GnGbuxw1H9BMXxrrJOS_OwUl2TZ2XxDZpDof9wcvenw6yG2Ygjcpfr8dEMVizPZaWf-KA'
+    authToken: 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJDLTBGNDQxMjBEODcyQzQ0NiIsImlhdCI6MTc1MDQzNDA0NiwiZXhwIjoxOTA4MTE0MDQ2fQ.EhMOT_hN6-BgNRd5Yk21qTO8v1VvoH3wNab2jSMzYagEF0JiNbthp1qTFJiZ6RLetmm_HqAyvPMv0GyRV2P3mw'
   };
 
   const params = {
     countryCode: '91',
     mobileNumber: phone,
     verificationId: verification_code,
-    customerId: 'C-DEBE2B6893854AD',
+    customerId: 'C-0F44120D872C446',
     code: otp
   };
 
