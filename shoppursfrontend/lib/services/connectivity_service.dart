@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ConnectivityService {
-  static const String baseUrl = 'https://app.shoppurs.in';
+  static const String baseUrl = 'https://api.shoppurs.in';
   static const Duration timeoutDuration = Duration(seconds: 30);
 
   // Check if device has internet connection

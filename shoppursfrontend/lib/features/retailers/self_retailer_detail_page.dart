@@ -128,7 +128,7 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
       if (token == null) throw Exception('No authentication token found');
 
       // Build URL with location parameters if available
-      String url = 'https://app.shoppurs.in/api/retailers/my-retailer';
+      String url = 'https://api.shoppurs.in/api/retailers/my-retailer';
       Map<String, String> queryParams = {};
       
       if (currentLat != null && currentLong != null) {

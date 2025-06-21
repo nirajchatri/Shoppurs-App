@@ -37,6 +37,10 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
   String? _selectedCity;
   String _shopOpenStatus = 'Y';
   
+  // Add manual city entry controller
+  final _manualCityController = TextEditingController();
+  bool _isManualCityEntry = false;
+  
   // Profile photo variables
   File? _selectedImage;
   String? _currentPhotoUrl;
@@ -137,9 +141,11 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
       if (_selectedState != null && _citiesByState.containsKey(_selectedState)) {
         final cities = _citiesByState[_selectedState!]!;
         _selectedCity = data['RET_CITY'];
-        // If the city doesn't exist in our list for this state, use the first city
+        // If the city doesn't exist in our list for this state, treat it as manual entry
         if (_selectedCity == null || !cities.contains(_selectedCity)) {
-          _selectedCity = cities.first;
+          _selectedCity = 'Others';
+          _isManualCityEntry = true;
+          _manualCityController.text = data['RET_CITY'] ?? '';
         }
       }
       
@@ -181,7 +187,7 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
         'RET_EMAIL_ID': _emailController.text,
         'RET_COUNTRY': _selectedCountry ?? 'India',
         'RET_STATE': _selectedState ?? '',
-        'RET_CITY': _selectedCity ?? '',
+        'RET_CITY': _isManualCityEntry ? _manualCityController.text : (_selectedCity ?? ''),
         'RET_GST_NO': _gstController.text,
         'SHOP_OPEN_STATUS': _shopOpenStatus,
         'LATITUDE': _currentPosition.latitude.toString(),
@@ -393,7 +399,7 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
         _isMapLoading = false;
         _updateMarkers();
       });
-      _getAddressFromLatLng(_currentPosition);
+      // Removed automatic address update - only update when "Use Map Location" is clicked
     } catch (e) {
       setState(() {
         _error = 'Error getting location: $e';
@@ -412,7 +418,7 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
           setState(() {
             _currentPosition = newPosition;
           });
-          _getAddressFromLatLng(newPosition);
+          // Removed automatic address update - only update when "Use Map Location" is clicked
         },
       ),
     };
@@ -452,6 +458,7 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
     _pinCodeController.dispose();
     _emailController.dispose();
     _gstController.dispose();
+    _manualCityController.dispose();
     super.dispose();
   }
 
@@ -692,6 +699,8 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
                               _selectedState = value;
                               // Reset city when state changes
                               _selectedCity = _citiesByState[value]?.first;
+                              _isManualCityEntry = false;
+                              _manualCityController.clear();
                             });
                           }
                         },
@@ -710,16 +719,27 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
                             labelText: 'City',
                             border: OutlineInputBorder(),
                           ),
-                          items: (_citiesByState[_selectedState!] ?? [])
-                              .map((city) => DropdownMenuItem<String>(
-                                    value: city,
-                                    child: Text(city),
-                                  ))
-                              .toList(),
+                          items: [
+                            // Add existing cities
+                            ...(_citiesByState[_selectedState!] ?? [])
+                                .map((city) => DropdownMenuItem<String>(
+                                      value: city,
+                                      child: Text(city),
+                                    )),
+                            // Add "Others" option
+                            const DropdownMenuItem<String>(
+                              value: 'Others',
+                              child: Text('Others (Enter manually)'),
+                            ),
+                          ],
                           onChanged: (value) {
                             if (value != null) {
                               setState(() {
                                 _selectedCity = value;
+                                _isManualCityEntry = value == 'Others';
+                                if (!_isManualCityEntry) {
+                                  _manualCityController.clear();
+                                }
                               });
                             }
                           },
@@ -730,6 +750,24 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
                             return null;
                           },
                         ),
+                      // Manual city entry field
+                      if (_isManualCityEntry) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _manualCityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Enter City Name',
+                            border: OutlineInputBorder(),
+                            hintText: 'e.g., Noida, Gurgaon, etc.',
+                          ),
+                          validator: (value) {
+                            if (_isManualCityEntry && (value == null || value.isEmpty)) {
+                              return 'Please enter city name';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _addressController,
@@ -964,6 +1002,7 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
                   _currentPosition = position;
                   _updateMarkers();
                 });
+                // Position updated but address fields won't auto-update
               },
               myLocationEnabled: true,
               myLocationButtonEnabled: true,
@@ -1003,12 +1042,24 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
                         orElse: () => '',
                       );
                     }
+                    
                     setState(() {
                       _addressController.text = '${place.street}, ${place.subLocality}';
                       _pinCodeController.text = place.postalCode ?? '';
                       _selectedCountry = place.country;
                       _selectedState = matchedState;
-                      _selectedCity = matchedCity;
+                      
+                      // Handle city selection with manual entry support
+                      if (matchedCity != null && matchedCity.isNotEmpty) {
+                        _selectedCity = matchedCity;
+                        _isManualCityEntry = false;
+                        _manualCityController.clear();
+                      } else if (city != null && city.isNotEmpty) {
+                        // City not found in predefined list, use manual entry
+                        _selectedCity = 'Others';
+                        _isManualCityEntry = true;
+                        _manualCityController.text = city;
+                      }
                     });
                   }
                 } catch (e) {

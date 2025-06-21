@@ -34,7 +34,7 @@ Updated APK files have been created in `build/app/outputs/flutter-apk/`:
 
 ## 🌐 API Configuration
 
-The app is configured to connect to: **https://app.shoppurs.in**
+The app is configured to connect to: **https://api.shoppurs.in**
 
 ### Network Requirements:
 - ✅ HTTPS connections enabled
@@ -48,7 +48,7 @@ The app is configured to connect to: **https://app.shoppurs.in**
 
 1. **Check Internet Connection:**
    - Ensure your device has active internet
-   - Try opening a web browser and visiting https://app.shoppurs.in
+   - Try opening a web browser and visiting https://api.shoppurs.in
 
 2. **Clear App Data:**
    - Go to Settings > Apps > shoppursshop
@@ -69,13 +69,13 @@ When you start the app, it will log the following in the console:
 
 ```
 === SERVICE URL VERIFICATION ===
-API Config Base URL: https://app.shoppurs.in
-HTTP Client Base URL: https://app.shoppurs.in
-Auth Service Base URL: https://app.shoppurs.in
-Product Service Base URL: https://app.shoppurs.in
-Category Service Base URL: https://app.shoppurs.in
-Cart Service Base URL: https://app.shoppurs.in
-Address Service Base URL: https://app.shoppurs.in
+API Config Base URL: https://api.shoppurs.in
+HTTP Client Base URL: https://api.shoppurs.in
+Auth Service Base URL: https://api.shoppurs.in
+Product Service Base URL: https://api.shoppurs.in
+Category Service Base URL: https://api.shoppurs.in
+Cart Service Base URL: https://api.shoppurs.in
+Address Service Base URL: https://api.shoppurs.in
 ================================
 ```
 
@@ -85,7 +85,7 @@ To test if the API is working:
 
 1. **Manual Test:**
    - Open browser on your phone
-   - Visit: https://app.shoppurs.in
+   - Visit: https://api.shoppurs.in
    - You should see a response from the server
 
 2. **App Test:**
@@ -125,9 +125,9 @@ To test if the API is working:
 If you encounter any issues:
 1. Try the debug APK first
 2. Check the troubleshooting steps above
-3. Ensure your backend server (https://app.shoppurs.in) is running
+3. Ensure your backend server (https://api.shoppurs.in) is running
 4. Verify API endpoints are accessible
 
 ---
 
-**Note:** The app is configured to work with the production API at https://app.shoppurs.in. Make sure your backend server is deployed and accessible from mobile networks. 
+**Note:** The app is configured to work with the production API at https://api.shoppurs.in. Make sure your backend server is deployed and accessible from mobile networks. 

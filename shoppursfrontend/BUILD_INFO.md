@@ -30,8 +30,8 @@
 
 ## 🌐 API Configuration
 
-- **Base URL:** https://app.shoppurs.in
-- **Health Check:** https://app.shoppurs.in/health
+- **Base URL:** https://api.shoppurs.in
+- **Health Check:** https://api.shoppurs.in/health
 - **Timeout:** 30 seconds
 - **CORS:** Configured for web development
 
@@ -66,15 +66,15 @@
 If you encounter issues:
 
 1. **Use Debug APK** for detailed error logs
-2. **Check internet connection** - visit https://app.shoppurs.in in browser
+2. **Check internet connection** - visit https://api.shoppurs.in in browser
 3. **Clear app data** if needed
 4. **Try different network** (WiFi vs mobile data)
 
 ## 📞 Support
 
-- **API Status:** https://app.shoppurs.in/health
+- **API Status:** https://api.shoppurs.in/health
 - **Debug Logs:** Use `adb logcat | grep flutter` with debug APK
-- **Network Test:** Visit https://app.shoppurs.in in mobile browser
+- **Network Test:** Visit https://api.shoppurs.in in mobile browser
 
 ---
 
