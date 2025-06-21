@@ -9,7 +9,7 @@
     </domain-config>
     
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">anwarfood.onrender.com</domain>
+        <domain includeSubdomains="true">shoppursfood.onrender.com</domain>
         <trust-anchors>
             <certificates src="system"/>
         </trust-anchors>

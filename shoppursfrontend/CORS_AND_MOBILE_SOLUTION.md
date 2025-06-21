@@ -4,22 +4,22 @@
 
 ### Problem:
 ```
-Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http://localhost:65109' has been blocked by CORS policy
+Access to fetch at 'https://app.shoppurs.in/api/auth/login' from origin 'http://localhost:65109' has been blocked by CORS policy
 ```
 
 ### ✅ Solution Applied:
 
-1. **Updated Backend CORS Configuration** (`anwarfoodbackend/src/app.js`):
+1. **Updated Backend CORS Configuration** (`shoppursfoodbackend/src/app.js`):
    ```javascript
    const corsOptions = {
      origin: [
-       'http://192.168.29.96:3000',
+       'https://app.shoppurs.in',
        'http://localhost:65109',
        'http://localhost:8080',
        'http://127.0.0.1:3000',
        'http://127.0.0.1:65109',
        'http://127.0.0.1:8080',
-       'http://192.168.29.96:3000',
+       'https://app.shoppurs.in',
      ],
      credentials: true,
      optionsSuccessStatus: 200,
@@ -36,7 +36,7 @@ Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http:
 
 1. **Deploy Updated Backend:**
    ```bash
-   cd anwarfoodbackend
+   cd shoppursfoodbackend
    git add .
    git commit -m "Fix CORS for Flutter web development"
    git push
@@ -48,7 +48,7 @@ Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http:
 
 3. **Test CORS Fix:**
    ```bash
-   cd anwarfoodfrontend
+   cd shoppursfoodfrontend
    flutter run -d chrome
    ```
 
@@ -91,11 +91,11 @@ Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http:
 #### If App Shows "No Internet Connection":
 
 1. **Check Device Internet:**
-   - Open browser and visit http://192.168.29.96:3000
-   - Should show: `{"success":true,"message":"Welcome to AnwarFood API","version":"1.0.0"}`
+   - Open browser and visit https://app.shoppurs.in
+   - Should show: `{"success":true,"message":"Welcome to shoppursFood API","version":"1.0.0"}`
 
 2. **Clear App Data:**
-   - Settings → Apps → AnwarFood → Storage → Clear Data
+   - Settings → Apps → shoppursFood → Storage → Clear Data
 
 3. **Check Network Type:**
    - Try switching between WiFi and mobile data
@@ -105,10 +105,10 @@ Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http:
    - Install `app-debug.apk` for detailed logs
    - Use `adb logcat` to see error messages
 
-#### If App Shows "Cannot Connect to AnwarFood Servers":
+#### If App Shows "Cannot Connect to shoppursFood Servers":
 
 1. **Check Server Status:**
-   - Visit http://192.168.29.96:3000/health
+   - Visit https://app.shoppurs.in/health
    - Should return server status
 
 2. **Check Firewall/VPN:**
@@ -139,8 +139,8 @@ Access to fetch at 'http://192.168.29.96:3000/api/auth/login' from origin 'http:
 ### Startup Logs (Mobile):
 ```
 === SERVICE URL VERIFICATION ===
-API Config Base URL: http://192.168.29.96:3000
-HTTP Client Base URL: http://192.168.29.96:3000
+API Config Base URL: https://app.shoppurs.in
+HTTP Client Base URL: https://app.shoppurs.in
 ...
 === CONNECTIVITY CHECK ===
 Internet Connection: ✅ Available
@@ -153,7 +153,7 @@ Startup Connectivity Status: Connected successfully
 ```json
 {
   "success": true,
-  "message": "AnwarFood API is running",
+  "message": "shoppursFood API is running",
   "timestamp": "2025-05-27T...",
   "environment": "production"
 }
@@ -162,13 +162,13 @@ Startup Connectivity Status: Connected successfully
 ## 🔄 Deployment Workflow
 
 ### For Backend Updates:
-1. Update code in `anwarfoodbackend/`
+1. Update code in `shoppursfoodbackend/`
 2. Commit and push to repository
 3. Render auto-deploys the changes
 4. Test endpoints manually
 
 ### For Frontend Updates:
-1. Update code in `anwarfoodfrontend/`
+1. Update code in `shoppursfoodfrontend/`
 2. Run `flutter clean && flutter pub get`
 3. Build APK: `flutter build apk --release`
 4. Test on device before distribution
@@ -183,8 +183,8 @@ Startup Connectivity Status: Connected successfully
 4. **App Crashes:** Use debug APK, check logs with `adb logcat`
 
 ### Contact Information:
-- Check server status: http://192.168.29.96:3000/health
-- API documentation: http://192.168.29.96:3000/
+- Check server status: https://app.shoppurs.in/health
+- API documentation: https://app.shoppurs.in/
 - Debug logs: Use debug APK with `adb logcat | grep flutter`
 
 ---

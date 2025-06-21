@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../config/api_config.dart';
-import 'package:app_settings/app_settings.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({Key? key}) : super(key: key);
@@ -295,13 +294,11 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _openBarcodeScanner() async {
+    // Check camera permission
     final status = await Permission.camera.status;
-    if (status.isDenied) {
+    if (!status.isGranted) {
       final result = await Permission.camera.request();
       if (!result.isGranted) {
-        if (result.isPermanentlyDenied) {
-          await openAppSettings();
-        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Camera permission is required for barcode scanning'),
@@ -310,9 +307,6 @@ class _CartPageState extends State<CartPage> {
         );
         return;
       }
-    } else if (status.isPermanentlyDenied) {
-      await openAppSettings();
-      return;
     }
 
     // Navigate to barcode scanner

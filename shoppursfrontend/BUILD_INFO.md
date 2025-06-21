@@ -1,10 +1,10 @@
-# AnwarFood APK Build Information
+# shoppursFood APK Build Information
 
 ## 📱 Latest Build Details
 
 **Build Date:** May 27, 2025  
 **Version:** 1.0.1 (Build 2)  
-**Package:** com.anwarfood.app
+**Package:** com.shoppursfood.app
 
 ## 📦 APK Files Generated
 
@@ -26,12 +26,12 @@
 - **Target Android Version:** 14 (API 34)
 - **Architecture:** Universal APK (supports all devices)
 - **Permissions:** Internet, Network State
-- **Network Security:** HTTPS only, configured for anwarfood.onrender.com
+- **Network Security:** HTTPS only, configured for shoppursfood.onrender.com
 
 ## 🌐 API Configuration
 
-- **Base URL:** http://192.168.29.96:3000
-- **Health Check:** http://192.168.29.96:3000/health
+- **Base URL:** https://app.shoppurs.in
+- **Health Check:** https://app.shoppurs.in/health
 - **Timeout:** 30 seconds
 - **CORS:** Configured for web development
 
@@ -66,15 +66,15 @@
 If you encounter issues:
 
 1. **Use Debug APK** for detailed error logs
-2. **Check internet connection** - visit http://192.168.29.96:3000 in browser
+2. **Check internet connection** - visit https://app.shoppurs.in in browser
 3. **Clear app data** if needed
 4. **Try different network** (WiFi vs mobile data)
 
 ## 📞 Support
 
-- **API Status:** http://192.168.29.96:3000/health
+- **API Status:** https://app.shoppurs.in/health
 - **Debug Logs:** Use `adb logcat | grep flutter` with debug APK
-- **Network Test:** Visit http://192.168.29.96:3000 in mobile browser
+- **Network Test:** Visit https://app.shoppurs.in in mobile browser
 
 ---
 

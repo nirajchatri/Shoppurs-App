@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.anwarfood"
+    namespace = "com.example.shoppursfood"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.anwarfood.app"
+        applicationId = "com.shoppursfood.app"
         minSdk = 21
         targetSdk = 34
         versionCode = 2

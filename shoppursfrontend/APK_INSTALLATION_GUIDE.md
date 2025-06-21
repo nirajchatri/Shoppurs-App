@@ -1,4 +1,4 @@
-# AnwarFood Mobile App - APK Installation Guide
+# shoppursFood Mobile App - APK Installation Guide
 
 ## 📱 APK Files Generated
 
@@ -34,7 +34,7 @@ Updated APK files have been created in `build/app/outputs/flutter-apk/`:
 
 ## 🌐 API Configuration
 
-The app is configured to connect to: **http://192.168.29.96:3000**
+The app is configured to connect to: **https://app.shoppurs.in**
 
 ### Network Requirements:
 - ✅ HTTPS connections enabled
@@ -48,10 +48,10 @@ The app is configured to connect to: **http://192.168.29.96:3000**
 
 1. **Check Internet Connection:**
    - Ensure your device has active internet
-   - Try opening a web browser and visiting http://192.168.29.96:3000
+   - Try opening a web browser and visiting https://app.shoppurs.in
 
 2. **Clear App Data:**
-   - Go to Settings > Apps > AnwarFood
+   - Go to Settings > Apps > shoppursFood
    - Tap "Storage" > "Clear Data"
    - Restart the app
 
@@ -69,13 +69,13 @@ When you start the app, it will log the following in the console:
 
 ```
 === SERVICE URL VERIFICATION ===
-API Config Base URL: http://192.168.29.96:3000
-HTTP Client Base URL: http://192.168.29.96:3000
-Auth Service Base URL: http://192.168.29.96:3000
-Product Service Base URL: http://192.168.29.96:3000
-Category Service Base URL: http://192.168.29.96:3000
-Cart Service Base URL: http://192.168.29.96:3000
-Address Service Base URL: http://192.168.29.96:3000
+API Config Base URL: https://app.shoppurs.in
+HTTP Client Base URL: https://app.shoppurs.in
+Auth Service Base URL: https://app.shoppurs.in
+Product Service Base URL: https://app.shoppurs.in
+Category Service Base URL: https://app.shoppurs.in
+Cart Service Base URL: https://app.shoppurs.in
+Address Service Base URL: https://app.shoppurs.in
 ================================
 ```
 
@@ -85,7 +85,7 @@ To test if the API is working:
 
 1. **Manual Test:**
    - Open browser on your phone
-   - Visit: http://192.168.29.96:3000
+   - Visit: https://app.shoppurs.in
    - You should see a response from the server
 
 2. **App Test:**
@@ -102,7 +102,7 @@ To test if the API is working:
 
 ## 🆔 App Details
 
-- **Package Name:** com.anwarfood.app
+- **Package Name:** com.shoppursfood.app
 - **Version:** 1.0.0
 - **Version Code:** 1
 
@@ -125,9 +125,9 @@ To test if the API is working:
 If you encounter any issues:
 1. Try the debug APK first
 2. Check the troubleshooting steps above
-3. Ensure your backend server (http://192.168.29.96:3000) is running
+3. Ensure your backend server (https://app.shoppurs.in) is running
 4. Verify API endpoints are accessible
 
 ---
 
-**Note:** The app is configured to work with the production API at http://192.168.29.96:3000. Make sure your backend server is deployed and accessible from mobile networks. 
+**Note:** The app is configured to work with the production API at https://app.shoppurs.in. Make sure your backend server is deployed and accessible from mobile networks. 

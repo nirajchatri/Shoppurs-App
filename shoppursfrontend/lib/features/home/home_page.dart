@@ -20,7 +20,6 @@ import '../../services/advertising_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide Address;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:app_settings/app_settings.dart';
 
 import '../../config/api_config.dart';
 import '../../widgets/common_bottom_navbar.dart';
@@ -1513,13 +1512,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openBarcodeScanner() async {
+    // Check camera permission
     final status = await Permission.camera.status;
-    if (status.isDenied) {
+    if (!status.isGranted) {
       final result = await Permission.camera.request();
       if (!result.isGranted) {
-        if (result.isPermanentlyDenied) {
-          await openAppSettings();
-        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Camera permission is required for barcode scanning'),
@@ -1528,9 +1525,6 @@ class _HomePageState extends State<HomePage> {
         );
         return;
       }
-    } else if (status.isPermanentlyDenied) {
-      await openAppSettings();
-      return;
     }
 
     // Navigate to barcode scanner
@@ -2167,6 +2161,8 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+
 
   Widget? _buildFloatingActionButton() {
     if (_user?.role.toLowerCase() == 'employee') {

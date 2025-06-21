@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ConnectivityService {
-  static const String baseUrl = 'http://192.168.29.96:3000';
+  static const String baseUrl = 'https://app.shoppurs.in';
   static const Duration timeoutDuration = Duration(seconds: 30);
 
   // Check if device has internet connection
@@ -66,7 +66,7 @@ class ConnectivityService {
       return ConnectivityStatus(
         hasInternet: true,
         isApiReachable: false,
-        message: 'Cannot connect to AnwarFood servers. Please try again later.',
+        message: 'Cannot connect to shoppursFood servers. Please try again later.',
       );
     }
 

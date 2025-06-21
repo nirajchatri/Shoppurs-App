@@ -373,7 +373,7 @@ class _RetailerListPageState extends State<RetailerListPage> {
                                             ? Image.network(
                                                 retailer['RET_PHOTO'].toString().startsWith('http')
                                                     ? retailer['RET_PHOTO']
-                                                    : 'http://192.168.29.96:3000/uploads/retailers/profiles/${retailer['RET_PHOTO']}',
+                                                    : 'https://app.shoppurs.in/uploads/retailers/profiles/${retailer['RET_PHOTO']}',
                                                 width: 60,
                                                 height: 60,
                                                 fit: BoxFit.cover,
