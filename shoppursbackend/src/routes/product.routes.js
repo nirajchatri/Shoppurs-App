@@ -3,6 +3,7 @@ const router = express.Router();
 const { getProductList, getProductDetails, getProductsUnderCategory, getProductsUnderSubCategory, getProductUnits, searchProducts, getProductIdByBarcode } = require('../controllers/product.controller');
 const { productImagesUpload } = require('../middleware/upload.middleware');
 const authMiddleware = require('../middleware/auth.middleware');
+const { base_url } = require('../../environment');
 
 router.get('/list', authMiddleware, getProductList);
 router.get('/details/:id', authMiddleware, getProductDetails);
@@ -22,12 +23,10 @@ router.post('/upload-images', authMiddleware, productImagesUpload, (req, res) =>
       });
     }
 
-    // Here you would typically save the file paths to the database
-    // For now, just return the uploaded files info
     const uploadedImages = req.uploadedFiles.map(file => ({
       filename: file.filename,
-      path: file.path,
-      url: `http://localhost:3000/uploads/products/${file.filename}`,
+      path: `${base_url}/uploads/products/${file.filename}`,
+      full_path: `${base_url}/uploads/products/${file.filename}`,
       originalname: file.originalname,
       size: file.size
     }));

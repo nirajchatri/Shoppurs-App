@@ -1,4 +1,5 @@
 const { pool: db } = require('../config/database');
+const { base_url } = require('../environment');
 
 const addToCart = async (req, res) => {
   try {
@@ -519,6 +520,10 @@ const placeOrder = async (req, res) => {
     const userId = req.user.userId;
     const { addressId, paymentMethod, notes } = req.body;
 
+    // Get payment image path if uploaded
+    const paymentImagePath = req.uploadedFile ? 
+      `${base_url}/uploads/orders/${req.uploadedFile.filename}` : null;
+
     // Start transaction
     await db.promise().query('START TRANSACTION');
 
@@ -624,8 +629,8 @@ const placeOrder = async (req, res) => {
         ) VALUES (?, ?, NOW(), ?, 'delivery', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'mobile', 'pending', ?, NOW())
       `, [
         orderNumber, transactionId, notes || '', paymentMethod || 'cod',
-        req.uploadedFile ? req.uploadedFile.filename : null, // CO_IMAGE (legacy)
-        req.uploadedFile ? req.uploadedFile.filename : null, // PAYMENT_IMAGE (new field)
+        paymentImagePath, // CO_IMAGE (legacy)
+        paymentImagePath, // PAYMENT_IMAGE (new field)
         retailerInfo.length > 0 ? retailerInfo[0].RET_ID : null,
         userMobile, userName, userMobile,
         orderAddress.ADDRESS, orderAddress.COUNTRY, orderAddress.STATE,
@@ -709,7 +714,7 @@ const placeOrder = async (req, res) => {
           orderId: orderId,
           orderNumber: orderNumber,
           orderTotal: orderTotal,
-          paymentImage: req.uploadedFile ? `/uploads/orders/${req.uploadedFile.filename}` : null,
+          paymentImage: req.uploadedFile ? `${base_url}/uploads/orders/${req.uploadedFile.filename}` : null,
           deliveryAddress: {
             address: orderAddress.ADDRESS,
             city: orderAddress.CITY,

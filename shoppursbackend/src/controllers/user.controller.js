@@ -1,6 +1,7 @@
 const { pool: db } = require('../config/database');
 const path = require('path');
 const fs = require('fs');
+const { base_url } = require('../../environment');
 
 // Update User Profile (Name and Photo)
 const updateProfile = async (req, res) => {
@@ -61,7 +62,7 @@ const updateProfile = async (req, res) => {
     if (req.uploadedFile) {
       // Delete old profile photo if exists
       if (user.PHOTO) {
-        const oldPhotoPath = path.join(__dirname, '../../', user.PHOTO);
+        const oldPhotoPath = path.join(__dirname, '../../', 'uploads/users/profiles/', path.basename(user.PHOTO));
         if (fs.existsSync(oldPhotoPath)) {
           try {
             fs.unlinkSync(oldPhotoPath);
@@ -71,8 +72,8 @@ const updateProfile = async (req, res) => {
         }
       }
 
-      // Set new photo path
-      newPhotoPath = `uploads/users/profiles/${req.uploadedFile.filename}`;
+      // Set new photo path with full URL
+      newPhotoPath = `${base_url}/uploads/users/profiles/${req.uploadedFile.filename}`;
       updateFields.push('PHOTO = ?');
       updateValues.push(newPhotoPath);
     }
@@ -111,7 +112,7 @@ const updateProfile = async (req, res) => {
         changes_made: {
           username_updated: updateFields.some(field => field.includes('USERNAME')),
           photo_updated: updateFields.some(field => field.includes('PHOTO')),
-          photo_url: newPhotoPath ? `${req.protocol}://${req.get('host')}/${newPhotoPath}` : null
+          photo_url: newPhotoPath
         },
         updated_by: req.user.email || req.user.username || 'user'
       }
@@ -186,7 +187,7 @@ const getProfile = async (req, res) => {
     // Add full photo URL if photo exists
     const profileData = {
       ...user,
-      photo_url: user.PHOTO ? `${req.protocol}://${req.get('host')}/${user.PHOTO}` : null
+      photo_url: user.PHOTO
     };
 
     res.json({

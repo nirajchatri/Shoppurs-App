@@ -2,6 +2,7 @@ const { pool: db } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const QRCode = require('qrcode');
+const { base_url } = require('../environment');
 
 // Create directory function
 function createDirectory(dirPath) {
@@ -290,8 +291,11 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Get uploaded image filename if present
-    const paymentImage = req.uploadedFile ? req.uploadedFile.filename : orders[0].CO_IMAGE;
+    // Get uploaded image path if present
+    let paymentImage = orders[0].CO_IMAGE;
+    if (req.uploadedFile) {
+      paymentImage = `${base_url}/uploads/orders/${req.uploadedFile.filename}`;
+    }
 
     // Build dynamic update query based on provided fields
     let updateFields = [
@@ -427,7 +431,7 @@ const updateOrderStatus = async (req, res) => {
       // Update the cust_order table with the invoice URL
       await db.promise().query(
         'UPDATE cust_order SET INVOICE_URL = ? WHERE CO_ID = ?',
-        [`/uploads/invoice/${invoiceNumber}.pdf`, orderId]
+        [`${base_url}/uploads/invoice/${invoiceNumber}.pdf`, orderId]
       );
 
       // Update payment status in cust_payment table
@@ -445,7 +449,7 @@ const updateOrderStatus = async (req, res) => {
         oldStatus: currentStatus,
         newStatus: status.toLowerCase(),
         deliveredBy: employeeUserId,
-        paymentImage: paymentImage ? `/uploads/orders/${paymentImage}` : null,
+        paymentImage: paymentImage ? `${base_url}/uploads/orders/${paymentImage}` : null,
         deliveryCoordinates: {
           latitude: lat || null,
           longitude: long || null
@@ -783,7 +787,7 @@ const placeOrderForCustomer = async (req, res) => {
     // Update the cust_order table with the invoice URL
     await connection.query(
       'UPDATE cust_order SET INVOICE_URL = ? WHERE CO_ID = ?',
-      [`/uploads/invoice/${invoiceNumber}.pdf`, orderId]
+      [`${base_url}/uploads/invoice/${invoiceNumber}.pdf`, orderId]
     );
 
     // Commit transaction
@@ -797,7 +801,7 @@ const placeOrderForCustomer = async (req, res) => {
         orderNumber,
         orderTotal,
         invoiceNumber,
-        invoicePath: `/uploads/invoice/${invoiceNumber}.pdf`
+        invoicePath: `${base_url}/uploads/invoice/${invoiceNumber}.pdf`
       }
     });
 
@@ -1022,7 +1026,7 @@ const editRetailer = async (req, res) => {
     // Handle profile image upload
     if (req.uploadedFile) {
       updateFields.push('RET_PHOTO = ?');
-      updateValues.push(req.uploadedFile.filename);
+      updateValues.push(`${base_url}/uploads/retailers/profiles/${req.uploadedFile.filename}`);
     }
     
     if (RET_COUNTRY !== undefined) {
@@ -1104,7 +1108,7 @@ const editRetailer = async (req, res) => {
     // Add photo URL if photo exists
     const retailerData = updatedRetailer[0];
     if (retailerData.RET_PHOTO) {
-      retailerData.RET_PHOTO_URL = `http://localhost:3000/uploads/retailers/profiles/${retailerData.RET_PHOTO}`;
+      retailerData.RET_PHOTO_URL = `${base_url}/uploads/retailers/profiles/${retailerData.RET_PHOTO}`;
     }
 
     res.json({
@@ -1113,7 +1117,7 @@ const editRetailer = async (req, res) => {
       data: retailerData,
       uploadedFile: req.uploadedFile ? {
         filename: req.uploadedFile.filename,
-        url: `http://localhost:3000/uploads/retailers/profiles/${req.uploadedFile.filename}`
+        url: `${base_url}/uploads/retailers/profiles/${req.uploadedFile.filename}`
       } : null,
       updated_by: req.user.USERNAME,
       updated_fields: updateFields.length - 2 // Exclude UPDATED_DATE and UPDATED_BY from count
@@ -1179,7 +1183,7 @@ const getRetailerByPhone = async (req, res) => {
     // Add photo URL if photo exists
     const retailerData = retailer[0];
     if (retailerData.RET_PHOTO) {
-      retailerData.RET_PHOTO_URL = `http://localhost:3000/uploads/retailers/profiles/${retailerData.RET_PHOTO}`;
+      retailerData.RET_PHOTO_URL = `${base_url}/uploads/retailers/profiles/${retailerData.RET_PHOTO}`;
     }
 
     res.json({
@@ -1668,10 +1672,12 @@ const createCustomerByEmployee = async (req, res) => {
     createDirectory(path.join(__dirname, '../../uploads/retailers/qrcode'));
 
     let qrFileName = null;
+    let qrFullPath = null;
     try {
       // Generate QR code for the phone number
       qrFileName = `qr_${mobile}_${Date.now()}.png`;
       const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+      qrFullPath = `${base_url}/uploads/retailers/qrcode/${qrFileName}`;
       
       // Convert phone to string and add country code
       const phoneWithCode = `+91${mobile.toString()}`;
@@ -1691,7 +1697,7 @@ const createCustomerByEmployee = async (req, res) => {
       // Continue without QR code if generation fails
     }
 
-    // Insert retailer profile
+    // Insert retailer profile with full QR code URL
     await connection.query(
       `INSERT INTO retailer_info (
         RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
@@ -1716,7 +1722,7 @@ const createCustomerByEmployee = async (req, res) => {
         long || null,
         req.user.USERNAME,
         req.user.USERNAME,
-        qrFileName
+        qrFullPath
       ]
     );
 
@@ -1895,11 +1901,17 @@ const createCustomerWithMultipleAddressesByEmployee = async (req, res) => {
     createDirectory(path.join(__dirname, '../../uploads/retailers/qrcode'));
 
     let qrFileName = null;
+    let qrFullPath = null;
     try {
+      // Generate QR code for the phone number
       qrFileName = `qr_${mobile}_${Date.now()}.png`;
       const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+      qrFullPath = `${base_url}/uploads/retailers/qrcode/${qrFileName}`;
+      
+      // Convert phone to string and add country code
       const phoneWithCode = `+91${mobile.toString()}`;
       
+      // Generate QR code
       await QRCode.toFile(qrPath, phoneWithCode, {
         errorCorrectionLevel: 'H',
         width: 500,
@@ -1911,9 +1923,10 @@ const createCustomerWithMultipleAddressesByEmployee = async (req, res) => {
       });
     } catch (qrError) {
       console.error('QR Code generation error:', qrError);
+      // Continue without QR code if generation fails
     }
 
-    // Insert retailer profile
+    // Insert retailer profile with full QR code URL
     await connection.query(
       `INSERT INTO retailer_info (
         RET_CODE, RET_TYPE, RET_NAME, RET_MOBILE_NO, RET_ADDRESS, RET_PIN_CODE, 
@@ -1938,7 +1951,7 @@ const createCustomerWithMultipleAddressesByEmployee = async (req, res) => {
         long || null,
         req.user.USERNAME,
         req.user.USERNAME,
-        qrFileName
+        qrFullPath
       ]
     );
 

@@ -5,6 +5,7 @@ const axios = require('axios');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const { base_url } = require('../../environment');
 
 // Ensure upload directories exist
 const createDirectory = (dirPath) => {
@@ -285,6 +286,7 @@ const verifyOtp = async (req, res) => {
         // Generate QR code for the phone number
         const qrFileName = `qr_${phone}_${Date.now()}.png`;
         const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+        const qrFullPath = `${base_url}/uploads/retailers/qrcode/${qrFileName}`;
         
         // Convert phone to string and add country code for better identification
         const phoneWithCode = `+91${phone.toString()}`;
@@ -325,7 +327,7 @@ const verifyOtp = async (req, res) => {
             long || null,
             phone,
             phone,
-            qrFileName
+            qrFullPath
           ]
         );
 
@@ -373,6 +375,7 @@ const verifyOtp = async (req, res) => {
         try {
           const qrFileName = `qr_${phone}_${Date.now()}.png`;
           const qrPath = path.join(__dirname, '../../uploads/retailers/qrcode', qrFileName);
+          const qrFullPath = `${base_url}/uploads/retailers/qrcode/${qrFileName}`;
           
           // Convert phone to string and add country code for better identification
           const phoneWithCode = `+91${phone.toString()}`;
@@ -390,7 +393,7 @@ const verifyOtp = async (req, res) => {
 
           // Update retailer with QR code filename and coordinates if provided
           let updateQuery = 'UPDATE retailer_info SET BARCODE_URL = ?';
-          let updateParams = [qrFileName];
+          let updateParams = [qrFullPath];
           
           if (lat && long) {
             updateQuery += ', RET_LAT = ?, RET_LONG = ?';
@@ -399,7 +402,7 @@ const verifyOtp = async (req, res) => {
           
           updateQuery += ', UPDATED_DATE = NOW() WHERE RET_MOBILE_NO = ?';
           updateParams.push(phone);
-
+          
           await db.promise().query(updateQuery, updateParams);
         } catch (qrError) {
           console.error('QR Code generation error:', qrError);
