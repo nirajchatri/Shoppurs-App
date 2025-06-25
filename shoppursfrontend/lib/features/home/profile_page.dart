@@ -159,7 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               child: Image.network(
-                '${ApiConfig.baseUrl}/uploads/retailers/qrcode/${retailer['BARCODE_URL']}',
+                '${retailer['BARCODE_URL']}',
                 width: 150,
                 height: 150,
                 fit: BoxFit.contain,

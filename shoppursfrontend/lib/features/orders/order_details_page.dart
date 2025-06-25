@@ -1118,7 +1118,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                                                       minScale: 0.5,
                                                                       maxScale: 4,
                                                                       child: Image.network(
-                                                                        '${ApiConfig.baseUrl}/uploads/orders/${_order!['PAYMENT_IMAGE']}',
+                                                                        '${_order!['PAYMENT_IMAGE']}',
                                                                         fit: BoxFit.contain,
                                                                         loadingBuilder: (context, child, loadingProgress) {
                                                                           if (loadingProgress == null) return child;
@@ -1566,7 +1566,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                               borderRadius: BorderRadius.circular(8),
                                               child: item['PROD_IMAGE_1'] != null && item['PROD_IMAGE_1'].toString().isNotEmpty
                                                   ? Image.network(
-                                        '${ApiConfig.baseUrl}/uploads/products/${item['PROD_IMAGE_1']}',
+                                        '${item['PROD_IMAGE_1']}',
                                                       width: 60,
                                                       height: 60,
                                                       fit: BoxFit.cover,

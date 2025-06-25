@@ -661,7 +661,7 @@ class _CartPageState extends State<CartPage> {
                             borderRadius: BorderRadius.circular(8),
                             child: Image.network(
                               product['images']['image1'] != null && product['images']['image1'].toString().isNotEmpty
-                                  ? '${ApiConfig.baseUrl}/uploads/products/${product['images']['image1']}'
+                                  ? '${product['images']['image1']}'
                                   : '',
                               width: 80,
                               height: 80,
@@ -923,7 +923,7 @@ class _CartPageState extends State<CartPage> {
                                           ? ClipRRect(
                                               borderRadius: BorderRadius.circular(8),
                                               child: Image.network(
-                                        '${ApiConfig.baseUrl}/uploads/products/${prod['PROD_IMAGE_1']}',
+                                        '${prod['PROD_IMAGE_1']}',
                                                 width: 38,
                                                 height: 38,
                                                 fit: BoxFit.cover,

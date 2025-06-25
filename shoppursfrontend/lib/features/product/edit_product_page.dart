@@ -953,7 +953,7 @@ class _EditProductPageState extends State<EditProductPage> {
                               fit: BoxFit.cover,
                             )
                           : Image.network(
-                              '${ApiConfig.baseUrl}/uploads/products/$existingImageUrl',
+                              '$existingImageUrl',
                               width: double.infinity,
                               height: 120,
                               fit: BoxFit.cover,

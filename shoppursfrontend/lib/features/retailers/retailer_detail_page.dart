@@ -374,7 +374,7 @@ class _RetailerDetailPageState extends State<RetailerDetailPage> {
                 ? Image.network(
                     retailer['RET_PHOTO'].toString().startsWith('http')
                         ? retailer['RET_PHOTO']
-                        : '${ApiConfig.baseUrl}/uploads/retailers/profiles/${retailer['RET_PHOTO']}',
+                        : '${retailer['RET_PHOTO']}',
                     width: double.infinity,
                     height: 200,
                     fit: BoxFit.cover,
@@ -643,7 +643,7 @@ class _RetailerDetailPageState extends State<RetailerDetailPage> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      '${ApiConfig.baseUrl}/uploads/retailers/qrcode/${retailer['BARCODE_URL']}',
+                      '${retailer['BARCODE_URL']}',
                       width: 200,
                       height: 200,
                       fit: BoxFit.contain,
@@ -799,7 +799,7 @@ class _RetailerDetailPageState extends State<RetailerDetailPage> {
                 child: Column(
                   children: [
                     Image.network(
-                      '${ApiConfig.baseUrl}/uploads/retailers/qrcode/${retailer['BARCODE_URL']}',
+                      '${retailer['BARCODE_URL']}',
                       width: 300,
                       height: 300,
                       fit: BoxFit.contain,

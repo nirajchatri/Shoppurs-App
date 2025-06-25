@@ -395,7 +395,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Image.network(
-              '${ApiConfig.baseUrl}/uploads/products/${images[_selectedImageIndex]}',
+              '${images[_selectedImageIndex]}',
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) =>
                   const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
@@ -438,7 +438,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
-                              '${ApiConfig.baseUrl}/uploads/products/${images[index]}',
+                              '${images[index]}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   const Icon(Icons.image_not_supported, size: 24, color: Colors.grey),

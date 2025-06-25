@@ -133,7 +133,7 @@ class ApiConfig {
   // =============================================================================
   // FILE UPLOAD ENDPOINTS
   // =============================================================================
-  static String retailerPhoto(String photoName) => '$baseUrl/uploads/retailers/profiles/$photoName';
+  static String retailerPhoto(String photoName) => '$photoName';
   
   // =============================================================================
   // CONFIGURATION

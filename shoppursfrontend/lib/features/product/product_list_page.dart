@@ -626,7 +626,7 @@ class _ProductListPageState extends State<ProductListPage> {
                                         child: ClipRRect(
                                           borderRadius: BorderRadius.circular(12),
                                           child: Image.network(
-                                            '${ApiConfig.baseUrl}/uploads/subcategory/${subCat.imageUrl}',
+                                            '${subCat.imageUrl}',
                                             width: 52,
                                             height: 52,
                                             fit: BoxFit.cover,
@@ -687,7 +687,7 @@ class _ProductListPageState extends State<ProductListPage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Image.network(
-                                        '${ApiConfig.baseUrl}/uploads/products/${prod.image1}',
+                                        '${prod.image1}',
                                         width: 70,
                                         height: 70,
                                         fit: BoxFit.contain,
@@ -805,7 +805,7 @@ class _ProductListPageState extends State<ProductListPage> {
                                           ? ClipRRect(
                                               borderRadius: BorderRadius.circular(8),
                                               child: Image.network(
-                                                '${ApiConfig.baseUrl}/uploads/products/${prod['PROD_IMAGE_1']}',
+                                                '${prod['PROD_IMAGE_1']}',
                                                 width: 38,
                                                 height: 38,
                                                 fit: BoxFit.cover,
