@@ -249,7 +249,7 @@ const searchProducts = async (req, res) => {
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
       LEFT JOIN product_unit pu ON p.PROD_ID = pu.PU_PROD_ID
       WHERE p.PROD_NAME LIKE ?
-      AND (p.DEL_STATUS = 'A' OR p.DEL_STATUS IS NULL)
+      AND (p.DEL_STATUS = 'A' OR p.DEL_STATUS IS NULL OR p.DEL_STATUS = 'N')
     `;
 
     // Parameters for the query
