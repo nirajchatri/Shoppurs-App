@@ -1,3 +1,4 @@
+const { base_url } = require('../../environment');
 const { pool: db } = require('../config/database');
 
 const getRetailerList = async (req, res) => {
@@ -363,9 +364,11 @@ const updateRetailerProfile = async (req, res) => {
     }
     
     // Handle profile image upload
+    
+    // Handle profile image upload
     if (req.uploadedFile) {
       updateFields.push('RET_PHOTO = ?');
-      updateValues.push(req.uploadedFile.filename);
+      updateValues.push(`${base_url}/uploads/retailers/profiles/${req.uploadedFile.filename}`);
     }
     
     if (RET_COUNTRY !== undefined) {

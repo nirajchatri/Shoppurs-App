@@ -929,6 +929,7 @@ const searchRetailers = async (req, res) => {
 // Edit retailer by employee (with photo upload support)
 const editRetailer = async (req, res) => {
   try {
+    console.log("this")
     const { retailerId } = req.params;
     const {
       RET_CODE,
