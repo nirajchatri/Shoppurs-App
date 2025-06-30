@@ -33,6 +33,7 @@ import 'features/admin/category_management_page.dart';
 import 'features/admin/user_management_page.dart';
 import 'features/admin/create_user_page.dart';
 import 'features/admin/user_details_page.dart';
+import 'features/common/customer_leads_page.dart';
 import 'startup_page.dart';
 import 'debug_helper.dart';
 import 'services/http_client.dart';
@@ -113,6 +114,7 @@ class ShoppursShopApp extends StatelessWidget {
         '/manage-users': (context) => const ManageUsersPage(),
         '/category-management': (context) => const CategoryManagementPage(),
         '/user-management': (context) => const UserManagementPage(),
+        '/customer-leads': (context) => const CustomerLeadsPage(),
         '/retailer-list': (context) => const RetailerListPage(),
       },
     );

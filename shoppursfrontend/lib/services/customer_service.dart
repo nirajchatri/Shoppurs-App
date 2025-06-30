@@ -118,6 +118,89 @@ class CustomerService {
     }
   }
 
+  /// Get customers with retailer details (Admin)
+  Future<Map<String, dynamic>> getCustomersWithRetailerDetailsByAdmin({
+    int page = 1,
+    int limit = 10,
+    String? userType,
+    String? isActive,
+    String? city,
+    String? state,
+    String? country,
+    String? retStatus,
+    String? search,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      
+      if (userType != null) queryParams['userType'] = userType;
+      if (isActive != null) queryParams['isActive'] = isActive;
+      if (city != null) queryParams['city'] = city;
+      if (state != null) queryParams['state'] = state;
+      if (country != null) queryParams['country'] = country;
+      if (retStatus != null) queryParams['retStatus'] = retStatus;
+      if (search != null) queryParams['search'] = search;
+      
+      final uri = Uri.parse(ApiConfig.adminCustomersWithRetailerDetails).replace(
+        queryParameters: queryParams,
+      );
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      ).timeout(ApiConfig.timeout);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get customers with retailer details');
+      }
+    } catch (e) {
+      throw Exception('Error getting customers with retailer details: $e');
+    }
+  }
+
+  /// Search customers with retailer details (Admin)
+  Future<Map<String, dynamic>> searchCustomersWithRetailerDetailsByAdmin({
+    required String query,
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      
+      final uri = Uri.parse(ApiConfig.adminSearchCustomersWithRetailerDetails).replace(
+        queryParameters: {
+          'query': query,
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      ).timeout(ApiConfig.timeout);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to search customers with retailer details');
+      }
+    } catch (e) {
+      throw Exception('Error searching customers with retailer details: $e');
+    }
+  }
+
   // ==================== EMPLOYEE CUSTOMER MANAGEMENT ====================
 
   /// Create customer with single address (Employee)
@@ -222,6 +305,89 @@ class CustomerService {
     }
   }
 
+  /// Get customers with retailer details (Employee)
+  Future<Map<String, dynamic>> getCustomersWithRetailerDetailsByEmployee({
+    int page = 1,
+    int limit = 10,
+    String? userType,
+    String? isActive,
+    String? city,
+    String? state,
+    String? country,
+    String? retStatus,
+    String? search,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      
+      if (userType != null) queryParams['userType'] = userType;
+      if (isActive != null) queryParams['isActive'] = isActive;
+      if (city != null) queryParams['city'] = city;
+      if (state != null) queryParams['state'] = state;
+      if (country != null) queryParams['country'] = country;
+      if (retStatus != null) queryParams['retStatus'] = retStatus;
+      if (search != null) queryParams['search'] = search;
+      
+      final uri = Uri.parse(ApiConfig.employeeCustomersWithRetailerDetails).replace(
+        queryParameters: queryParams,
+      );
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      ).timeout(ApiConfig.timeout);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get customers with retailer details');
+      }
+    } catch (e) {
+      throw Exception('Error getting customers with retailer details: $e');
+    }
+  }
+
+  /// Search customers with retailer details (Employee)
+  Future<Map<String, dynamic>> searchCustomersWithRetailerDetailsByEmployee({
+    required String query,
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      
+      final uri = Uri.parse(ApiConfig.employeeSearchCustomersWithRetailerDetails).replace(
+        queryParameters: {
+          'query': query,
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
+      
+      final response = await http.get(
+        uri,
+        headers: headers,
+      ).timeout(ApiConfig.timeout);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to search customers with retailer details');
+      }
+    } catch (e) {
+      throw Exception('Error searching customers with retailer details: $e');
+    }
+  }
+
   // ==================== ROLE-AGNOSTIC METHODS ====================
 
   /// Create customer (automatically determines if admin or employee based on user role)
@@ -281,6 +447,68 @@ class CustomerService {
       return await searchCustomersByEmployee(query: query, page: page, limit: limit);
     } else {
       throw Exception('Unauthorized: Only admin and employee can search customers');
+    }
+  }
+
+  /// Get customers with retailer details (automatically determines role)
+  Future<Map<String, dynamic>> getCustomersWithRetailerDetails({
+    int page = 1,
+    int limit = 10,
+    String? userType,
+    String? isActive,
+    String? city,
+    String? state,
+    String? country,
+    String? retStatus,
+    String? search,
+  }) async {
+    final user = await _authService.getUser();
+    final role = user?.role.toLowerCase();
+    
+    if (role == 'admin') {
+      return await getCustomersWithRetailerDetailsByAdmin(
+        page: page,
+        limit: limit,
+        userType: userType,
+        isActive: isActive,
+        city: city,
+        state: state,
+        country: country,
+        retStatus: retStatus,
+        search: search,
+      );
+    } else if (role == 'employee') {
+      return await getCustomersWithRetailerDetailsByEmployee(
+        page: page,
+        limit: limit,
+        userType: userType,
+        isActive: isActive,
+        city: city,
+        state: state,
+        country: country,
+        retStatus: retStatus,
+        search: search,
+      );
+    } else {
+      throw Exception('Unauthorized: Only admin and employee can view customers with retailer details');
+    }
+  }
+
+  /// Search customers with retailer details (automatically determines role)
+  Future<Map<String, dynamic>> searchCustomersWithRetailerDetails({
+    required String query,
+    int page = 1,
+    int limit = 10,
+  }) async {
+    final user = await _authService.getUser();
+    final role = user?.role.toLowerCase();
+    
+    if (role == 'admin') {
+      return await searchCustomersWithRetailerDetailsByAdmin(query: query, page: page, limit: limit);
+    } else if (role == 'employee') {
+      return await searchCustomersWithRetailerDetailsByEmployee(query: query, page: page, limit: limit);
+    } else {
+      throw Exception('Unauthorized: Only admin and employee can search customers with retailer details');
     }
   }
 

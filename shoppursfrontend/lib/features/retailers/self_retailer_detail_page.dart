@@ -390,9 +390,7 @@ class _SelfRetailerDetailPageState extends State<SelfRetailerDetailPage> {
             borderRadius: BorderRadius.circular(12),
             child: retailer['RET_PHOTO'] != null
                 ? Image.network(
-                    retailer['RET_PHOTO'].toString().startsWith('http')
-                        ? retailer['RET_PHOTO']
-                        : '${ApiConfig.baseUrl}/uploads/retailers/profiles/${retailer['RET_PHOTO']}',
+                    retailer['RET_PHOTO'],
                     width: double.infinity,
                     height: 200,
                     fit: BoxFit.cover,

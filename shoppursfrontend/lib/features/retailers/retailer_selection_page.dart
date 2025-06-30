@@ -218,7 +218,16 @@ class _RetailerSelectionPageState extends State<RetailerSelectionPage> {
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.store, color: Colors.grey),
+                            ),
                       )
                     : _buildDefaultAvatar(),
               ),

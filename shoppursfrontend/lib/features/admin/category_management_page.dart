@@ -358,14 +358,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                                                 width: double.infinity,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (context, error, stackTrace) =>
-                                                    Container(
-                                                      color: Colors.grey.shade100,
-                                                      child: const Icon(
-                                                        Icons.image_not_supported,
-                                                        size: 40,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
+                                                    const Icon(Icons.image_not_supported, size: 24, color: Colors.grey),
                                               ),
                                             ),
                                           ),

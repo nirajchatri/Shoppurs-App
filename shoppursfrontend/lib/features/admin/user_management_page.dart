@@ -29,6 +29,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
   final int _limit = 10;
   String _searchQuery = '';
   String? _selectedUserType;
+  Set<int> _promotingUsers = {};
 
   @override
   void initState() {
@@ -168,6 +169,96 @@ class _UserManagementPageState extends State<UserManagementPage> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _promoteEmployeeToAdmin(UserManagementUser user) async {
+    // Validate that this is an employee user
+    if (user.userType.toLowerCase() != 'employee') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: Cannot promote user. Current role is \'${user.userType}\'. Only employees can be promoted to admin.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final shouldPromote = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Promote Employee to Admin'),
+        content: Text(
+          'Are you sure you want to promote "${user.username}" from Employee to Admin?\n\n'
+          'This action will grant the user administrator privileges.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9B1B1B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Promote'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldPromote != true) return;
+
+    setState(() {
+      _promotingUsers.add(user.userId);
+    });
+
+    try {
+      final response = await _userService.promoteEmployeeToAdmin(user.userId);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      
+      // Refresh the search results to show the updated user data
+      if (_searchQuery.isNotEmpty) {
+        _performSearch(_searchQuery);
+      }
+      
+    } catch (e) {
+      String errorMessage = 'Error: $e';
+      
+      // Handle specific error cases
+      if (e.toString().contains('Cannot promote user')) {
+        errorMessage = 'Error: User cannot be promoted. Please check user status and role.';
+      } else if (e.toString().contains('Authentication token not found')) {
+        errorMessage = 'Error: Session expired. Please login again.';
+      } else if (e.toString().contains('Access denied')) {
+        errorMessage = 'Error: You do not have permission to promote users.';
+      } else if (e.toString().contains('User not found')) {
+        errorMessage = 'Error: User not found or inactive.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() {
+        _promotingUsers.remove(user.userId);
+      });
     }
   }
 
@@ -320,6 +411,23 @@ class _UserManagementPageState extends State<UserManagementPage> {
                         ),
                         tooltip: isActive ? 'Deactivate' : 'Activate',
                       ),
+                      // Show promote button only for active employee users
+                      if (user.userType.toLowerCase() == 'employee' && isActive) ...[
+                        IconButton(
+                          onPressed: _promotingUsers.contains(user.userId) 
+                              ? null 
+                              : () => _promoteEmployeeToAdmin(user),
+                          icon: _promotingUsers.contains(user.userId)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.arrow_upward, size: 20),
+                          color: const Color(0xFF9B1B1B),
+                          tooltip: 'Promote to Admin',
+                        ),
+                      ],
                       IconButton(
                         onPressed: () => _navigateToUserDetails(user),
                         icon: const Icon(Icons.arrow_forward_ios, size: 16),

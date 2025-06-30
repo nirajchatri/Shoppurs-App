@@ -371,30 +371,26 @@ class _RetailerListPageState extends State<RetailerListPage> {
                                         borderRadius: BorderRadius.circular(8),
                                         child: retailer['RET_PHOTO'] != null && retailer['RET_PHOTO'].toString().isNotEmpty
                                             ? Image.network(
-                                                retailer['RET_PHOTO'].toString().startsWith('http')
-                                                    ? retailer['RET_PHOTO']
-                                                    : 'https://api.shoppurs.in/uploads/retailers/profiles/${retailer['RET_PHOTO']}',
-                                                width: 60,
-                                                height: 60,
+                                                retailer['RET_PHOTO'],
+                                                width: 120,
+                                                height: 90,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) => Container(
-                                                  width: 60,
-                                                  height: 60,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.grey.shade200,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: const Icon(Icons.store, color: Colors.grey),
-                                                ),
+                                                errorBuilder: (context, error, stackTrace) =>
+                                                    Container(
+                                                      width: 120,
+                                                      height: 90,
+                                                      color: Colors.grey.shade200,
+                                                      child: const Icon(Icons.store, size: 40, color: Colors.grey),
+                                                    ),
                                               )
                                             : Container(
-                                                width: 60,
-                                                height: 60,
+                                                width: 120,
+                                                height: 90,
                                                 decoration: BoxDecoration(
                                                   color: Colors.grey.shade200,
                                                   borderRadius: BorderRadius.circular(8),
                                                 ),
-                                                child: const Icon(Icons.store, color: Colors.grey),
+                                                child: const Icon(Icons.store, size: 40, color: Colors.grey),
                                               ),
                                       ),
                                       const SizedBox(width: 12),

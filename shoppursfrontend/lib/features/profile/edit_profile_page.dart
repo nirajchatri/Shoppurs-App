@@ -273,14 +273,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     
     if (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty) {
       // Check if it's from PHOTO field (needs forward slash) or photo_url (already has slash)
-      String imageUrl;
-      if (_currentProfile != null && _currentProfile!['PHOTO'] == _currentPhotoUrl) {
-        // PHOTO field - add forward slash
-        imageUrl = '${ApiConfig.baseUrl}/$_currentPhotoUrl';
-      } else {
-        // photo_url field - already has slash
-        imageUrl = '${ApiConfig.baseUrl}$_currentPhotoUrl';
-      }
+      String imageUrl = _currentPhotoUrl!;
       
       return Image.network(
         imageUrl,

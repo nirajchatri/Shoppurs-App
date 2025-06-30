@@ -159,6 +159,28 @@ class UserManagementService {
     }
   }
 
+  /// Promote Employee to Admin
+  Future<PromoteEmployeeResponse> promoteEmployeeToAdmin(int userId) async {
+    try {
+      final headers = await _getAuthHeaders();
+      
+      final response = await http.put(
+        Uri.parse(ApiConfig.adminPromoteEmployeeToAdmin(userId)),
+        headers: headers,
+      ).timeout(ApiConfig.timeout);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200 && data['success'] == true) {
+        return PromoteEmployeeResponse.fromJson(data);
+      } else {
+        throw Exception(data['message'] ?? 'Failed to promote employee to admin');
+      }
+    } catch (e) {
+      throw Exception('Error promoting employee to admin: $e');
+    }
+  }
+
   // ==================== UTILITY METHODS ====================
 
   /// Validate mobile number format (Indian format: 10 digits starting with 6-9)

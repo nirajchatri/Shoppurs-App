@@ -308,4 +308,80 @@ class UserSearchResponse {
       userTypeFilter: json['userTypeFilter']?.toString(),
     );
   }
+}
+
+class PromotionDetails {
+  final String previousRole;
+  final String newRole;
+  final int previousUserLevel;
+  final int newUserLevel;
+  final String promotedBy;
+  final DateTime promotionDate;
+
+  PromotionDetails({
+    required this.previousRole,
+    required this.newRole,
+    required this.previousUserLevel,
+    required this.newUserLevel,
+    required this.promotedBy,
+    required this.promotionDate,
+  });
+
+  factory PromotionDetails.fromJson(Map<String, dynamic> json) {
+    return PromotionDetails(
+      previousRole: json['previous_role']?.toString() ?? '',
+      newRole: json['new_role']?.toString() ?? '',
+      previousUserLevel: _parseInt(json['previous_user_level']) ?? 0,
+      newUserLevel: _parseInt(json['new_user_level']) ?? 0,
+      promotedBy: json['promoted_by']?.toString() ?? '',
+      promotionDate: json['promotion_date'] != null 
+          ? DateTime.tryParse(json['promotion_date'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'previous_role': previousRole,
+      'new_role': newRole,
+      'previous_user_level': previousUserLevel,
+      'new_user_level': newUserLevel,
+      'promoted_by': promotedBy,
+      'promotion_date': promotionDate.toIso8601String(),
+    };
+  }
+}
+
+class PromoteEmployeeResponse {
+  final bool success;
+  final String message;
+  final UserManagementUser user;
+  final PromotionDetails promotionDetails;
+
+  PromoteEmployeeResponse({
+    required this.success,
+    required this.message,
+    required this.user,
+    required this.promotionDetails,
+  });
+
+  factory PromoteEmployeeResponse.fromJson(Map<String, dynamic> json) {
+    return PromoteEmployeeResponse(
+      success: json['success'] == true,
+      message: json['message']?.toString() ?? '',
+      user: UserManagementUser.fromJson(json['data']['user']),
+      promotionDetails: PromotionDetails.fromJson(json['data']['promotion_details']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'success': success,
+      'message': message,
+      'data': {
+        'user': user.toJson(),
+        'promotion_details': promotionDetails.toJson(),
+      },
+    };
+  }
 } 

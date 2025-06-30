@@ -1118,7 +1118,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                                                       minScale: 0.5,
                                                                       maxScale: 4,
                                                                       child: Image.network(
-                                                                        '${ApiConfig.baseUrl}/uploads/orders/${_order!['PAYMENT_IMAGE']}',
+                                                                        _order!['PAYMENT_IMAGE'],
                                                                         fit: BoxFit.contain,
                                                                         loadingBuilder: (context, child, loadingProgress) {
                                                                           if (loadingProgress == null) return child;
@@ -1131,28 +1131,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                                                             ),
                                                                           );
                                                                         },
-                                                                        errorBuilder: (context, error, stackTrace) {
-                                                                          return const Center(
-                                                                            child: Column(
-                                                                              mainAxisSize: MainAxisSize.min,
-                                                                              children: [
-                                                                                Icon(
-                                                                                  Icons.error_outline,
-                                                                                  color: Colors.red,
-                                                                                  size: 48,
-                                                                                ),
-                                                                                SizedBox(height: 8),
-                                                                                Text(
-                                                                                  'Failed to load image',
-                                                                                  style: TextStyle(
-                                                                                    color: Colors.red,
-                                                                                    fontSize: 16,
-                                                                                  ),
-                                                                                ),
-                                                                              ],
-                                                                            ),
-                                                                          );
-                                                                        },
+                                                                        errorBuilder: (context, error, stackTrace) =>
+                                                                            const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
                                                                       ),
                                                                     ),
                                                                   ),
@@ -1287,7 +1267,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       return const SizedBox.shrink();
     }
 
-    final invoiceUrl = '${ApiConfig.baseUrl}${_order!['INVOICE_URL']}';
+          final invoiceUrl = _order!['INVOICE_URL'];
     print('Invoice URL: $invoiceUrl'); // Debug print
 
     return Container(
@@ -1566,7 +1546,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                               borderRadius: BorderRadius.circular(8),
                                               child: item['PROD_IMAGE_1'] != null && item['PROD_IMAGE_1'].toString().isNotEmpty
                                                   ? Image.network(
-                                        '${ApiConfig.baseUrl}/uploads/products/${item['PROD_IMAGE_1']}',
+                                        item['PROD_IMAGE_1'],
                                                       width: 60,
                                                       height: 60,
                                                       fit: BoxFit.cover,

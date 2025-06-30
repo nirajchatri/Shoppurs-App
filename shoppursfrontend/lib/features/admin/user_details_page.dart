@@ -23,6 +23,7 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
   bool _isLoading = true;
   String? _error;
   bool _isTogglingStatus = false;
+  bool _isPromoting = false;
 
   @override
   void initState() {
@@ -51,7 +52,20 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
   }
 
   Future<void> _toggleUserStatus() async {
-    if (_userDetails == null) return;
+    if (_userDetails == null) {
+      return;
+    }
+
+    // Validate that this is an admin or employee user
+    if (!['admin', 'employee'].contains(_userDetails!.user.userType.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Cannot toggle status for this user type'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isTogglingStatus = true;
@@ -59,7 +73,38 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
 
     try {
       final newStatus = !_userDetails!.user.isActiveUser;
-      await _userService.updateUserStatus(widget.userId, newStatus);
+      
+      // Add a small delay to ensure any previous operations have completed
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      await _userService.updateUserStatus(_userDetails!.user.userId, newStatus);
+      
+      // Update the local state immediately instead of reloading from server
+      setState(() {
+        _userDetails = UserDetailsResponse(
+          user: UserManagementUser(
+            userId: _userDetails!.user.userId,
+            ulId: _userDetails!.user.ulId,
+            username: _userDetails!.user.username,
+            email: _userDetails!.user.email,
+            mobile: _userDetails!.user.mobile,
+            city: _userDetails!.user.city,
+            province: _userDetails!.user.province,
+            zip: _userDetails!.user.zip,
+            address: _userDetails!.user.address,
+            photo: _userDetails!.user.photo,
+            fcmToken: _userDetails!.user.fcmToken,
+            createdDate: _userDetails!.user.createdDate,
+            createdBy: _userDetails!.user.createdBy,
+            updatedDate: DateTime.now(),
+            updatedBy: _userDetails!.user.updatedBy,
+            userType: _userDetails!.user.userType,
+            isActive: newStatus ? 'Y' : 'N',
+            isOtpVerify: _userDetails!.user.isOtpVerify,
+          ),
+          employeeStats: _userDetails!.employeeStats,
+        );
+      });
       
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,18 +114,160 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
         ),
       );
       
-      // Reload user details
-      await _loadUserDetails();
     } catch (e) {
+      String errorMessage = 'Error: $e';
+      
+      // Handle specific error cases
+      if (e.toString().contains('User not found or not an admin/employee')) {
+        errorMessage = 'Error: User not found or invalid user type. Please refresh and try again.';
+        // Reload user details if this specific error occurs
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          _loadUserDetails();
+        });
+      } else if (e.toString().contains('Authentication token not found')) {
+        errorMessage = 'Error: Session expired. Please login again.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'Error: Request timed out. Please check your connection and try again.';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {
       setState(() {
         _isTogglingStatus = false;
+      });
+    }
+  }
+
+  Future<void> _promoteEmployeeToAdmin() async {
+    if (_userDetails == null) {
+      return;
+    }
+
+    // Validate that this is an employee user
+    if (_userDetails!.user.userType.toLowerCase() != 'employee') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: Cannot promote user. Current role is \'${_userDetails!.user.userType}\'. Only employees can be promoted to admin.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation dialog
+    final shouldPromote = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Promote Employee to Admin'),
+        content: Text(
+          'Are you sure you want to promote "${_userDetails!.user.username}" from Employee to Admin?\n\n'
+          'This action will grant the user administrator privileges.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9B1B1B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Promote'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldPromote != true) return;
+
+    setState(() {
+      _isPromoting = true;
+    });
+
+    try {
+      final response = await _userService.promoteEmployeeToAdmin(_userDetails!.user.userId);
+      
+      // Update the local state with the promoted user data
+      setState(() {
+        _userDetails = UserDetailsResponse(
+          user: response.user,
+          employeeStats: _userDetails!.employeeStats,
+        );
+      });
+      
+      // Show success message with promotion details
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      
+      // Show detailed promotion info dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Promotion Successful'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('User: ${response.user.username}'),
+              const SizedBox(height: 8),
+              Text('Previous Role: ${response.promotionDetails.previousRole}'),
+              Text('New Role: ${response.promotionDetails.newRole}'),
+              const SizedBox(height: 8),
+              Text('Promoted By: ${response.promotionDetails.promotedBy}'),
+              Text('Promotion Date: ${_formatDate(response.promotionDetails.promotionDate)}'),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9B1B1B),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      
+         } catch (e) {
+       String errorMessage = 'Error: $e';
+      
+      // Handle specific error cases
+      if (e.toString().contains('Cannot promote user')) {
+        errorMessage = 'Error: User cannot be promoted. Please check user status and role.';
+      } else if (e.toString().contains('Authentication token not found')) {
+        errorMessage = 'Error: Session expired. Please login again.';
+      } else if (e.toString().contains('Access denied')) {
+        errorMessage = 'Error: You do not have permission to promote users.';
+      } else if (e.toString().contains('User not found')) {
+        errorMessage = 'Error: User not found or inactive.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isPromoting = false;
       });
     }
   }
@@ -214,20 +401,67 @@ class _UserDetailsPageState extends State<UserDetailsPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    IconButton(
-                      onPressed: _isTogglingStatus ? null : _toggleUserStatus,
-                      icon: _isTogglingStatus
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              isActive ? Icons.toggle_on : Icons.toggle_off,
-                              color: isActive ? Colors.green : Colors.grey,
-                              size: 32,
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: _isTogglingStatus ? null : _toggleUserStatus,
+                              icon: _isTogglingStatus
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Icon(
+                                      isActive ? Icons.toggle_on : Icons.toggle_off,
+                                      color: isActive ? Colors.green : Colors.grey,
+                                      size: 32,
+                                    ),
+                              tooltip: isActive ? 'Deactivate User' : 'Activate User',
                             ),
-                      tooltip: isActive ? 'Deactivate User' : 'Activate User',
+                            IconButton(
+                              onPressed: _isLoading ? null : _loadUserDetails,
+                              icon: Icon(
+                                Icons.refresh,
+                                color: Colors.grey.shade600,
+                                size: 20,
+                              ),
+                              tooltip: 'Refresh User Details',
+                            ),
+                          ],
+                        ),
+                        // Show promote button only for employee users
+                        if (user.userType.toLowerCase() == 'employee' && isActive) ...[
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: _isPromoting ? null : _promoteEmployeeToAdmin,
+                            icon: _isPromoting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.arrow_upward, size: 16, color: Colors.white),
+                            label: Text(
+                              _isPromoting ? 'Promoting...' : 'Promote to Admin',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF9B1B1B),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

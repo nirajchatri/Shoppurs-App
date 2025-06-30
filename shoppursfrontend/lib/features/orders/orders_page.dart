@@ -553,22 +553,19 @@ class _OrdersPageState extends State<OrdersPage> {
                                                     borderRadius: BorderRadius.circular(8),
                                                     child: Image.network(
                                                       _retailerInfo!['RET_PHOTO'],
-                                                      width: 60,
-                                                      height: 60,
+                                                      width: 40,
+                                                      height: 40,
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (context, error, stackTrace) => Container(
-                                                        width: 60,
-                                                        height: 60,
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFF9B1B1B).withOpacity(0.1),
-                                                          borderRadius: BorderRadius.circular(8),
-                                                        ),
-                                                        child: const Icon(
-                                                          Icons.shopping_bag_outlined,
-                                                          color: Color(0xFF9B1B1B),
-                                                          size: 30,
-                                                        ),
-                                                      ),
+                                                      errorBuilder: (context, error, stackTrace) =>
+                                                          Container(
+                                                            width: 40,
+                                                            height: 40,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.grey.shade200,
+                                                              borderRadius: BorderRadius.circular(20),
+                                                            ),
+                                                            child: const Icon(Icons.store, size: 20, color: Colors.grey),
+                                                          ),
                                                     ),
                                                   )
                                                 : Container(
@@ -614,33 +611,13 @@ class _OrdersPageState extends State<OrdersPage> {
                                                     ),
                                                   ),
                                                   const SizedBox(height: 2),
-                                                  Row(
-                                                    children: [
-                                                      Text(
-                                                        '${order['total_items'] ?? order['TOTAL_ITEMS'] ?? 0} items',
-                                                        style: const TextStyle(
-                                                          color: Colors.grey,
-                                                          fontSize: 13,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        '•',
-                                                        style: TextStyle(
-                                                          color: Colors.grey.shade400,
-                                                          fontSize: 13,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        order['ORDER_STATUS'].toString().toUpperCase(),
-                                                        style: TextStyle(
-                                                          color: _getStatusColor(order['ORDER_STATUS']),
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                    ],
+                                                  Text(
+                                                    order['ORDER_STATUS'].toString().toUpperCase(),
+                                                    style: TextStyle(
+                                                      color: _getStatusColor(order['ORDER_STATUS']),
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -713,7 +690,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                         style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
                                       subtitle: Text(
-                                        '${order['total_items'] ?? order['TOTAL_ITEMS'] ?? 0} items • ${_formatDate(order['CREATED_DATE'])}',
+                                        _formatDate(order['CREATED_DATE']),
                                         style: const TextStyle(color: Colors.grey),
                                       ),
                                       trailing: Text(

@@ -953,16 +953,19 @@ class _EditProductPageState extends State<EditProductPage> {
                               fit: BoxFit.cover,
                             )
                           : Image.network(
-                              '${ApiConfig.baseUrl}/uploads/products/$existingImageUrl',
-                              width: double.infinity,
-                              height: 120,
+                              _existingImage1!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                              width: 80,
+                              height: 80,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
                                   color: Colors.grey.shade200,
-                                  child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                                );
-                              },
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.image, color: Colors.grey),
+                              ),
                             ),
                     ),
                     Positioned(

@@ -660,9 +660,7 @@ class _CartPageState extends State<CartPage> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.network(
-                              product['images']['image1'] != null && product['images']['image1'].toString().isNotEmpty
-                                  ? '${ApiConfig.baseUrl}/uploads/products/${product['images']['image1']}'
-                                  : '',
+                              product['images']['image1'] ?? '',
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,
@@ -919,17 +917,15 @@ class _CartPageState extends State<CartPage> {
                                     }
                                     final prod = _searchResults[index];
                                     return ListTile(
-                                      leading: prod['PROD_IMAGE_1'] != null && prod['PROD_IMAGE_1'].toString().isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: Image.network(
-                                        '${ApiConfig.baseUrl}/uploads/products/${prod['PROD_IMAGE_1']}',
-                                                width: 38,
-                                                height: 38,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            )
-                                          : const Icon(Icons.image, size: 38, color: Colors.grey),
+                                      leading: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          prod['PROD_IMAGE_1'],
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.image_not_supported, size: 24, color: Colors.grey),
+                                        ),
+                                      ),
                                       title: _highlightSearchTerm(prod['PROD_NAME'] ?? '', _searchController.text.trim()),
                                       onTap: () => _onSearchResultTap(prod),
                                     );

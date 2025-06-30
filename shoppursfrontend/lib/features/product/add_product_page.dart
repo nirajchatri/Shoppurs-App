@@ -1005,9 +1005,12 @@ class _AddProductPageState extends State<AddProductPage> {
       final result = await _productService.addProductWithImages(productData, files);
       print('API Response:');
       print(result);
+      print('Result success field: ${result['success']} (${result['success'].runtimeType})');
+      print('Result message field: ${result['message']}');
       
       if (mounted) {
         if (result['success'] == true) {
+          print('SUCCESS: Navigating back with success');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? 'Product added successfully'),
@@ -1016,6 +1019,7 @@ class _AddProductPageState extends State<AddProductPage> {
           );
           Navigator.pop(context, true);
         } else {
+          print('FAILURE: Showing error message');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? 'Failed to add product'),

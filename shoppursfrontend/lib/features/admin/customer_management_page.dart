@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/customer_model.dart';
+import '../../models/customer_with_retailer_model.dart';
 import 'create_customer_page.dart';
 import 'customer_details_page.dart';
 import '../../widgets/error_message_widget.dart';
@@ -19,8 +20,8 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
   final AuthService _authService = AuthService();
   final TextEditingController _searchController = TextEditingController();
 
-  List<Customer> _customers = [];
-  Map<String, dynamic>? _pagination;
+  List<CustomerWithRetailerDetails> _customers = [];
+  CustomerWithRetailerPagination? _pagination;
   bool _isLoading = false;
   bool _isSearching = false;
   String? _error;
@@ -34,6 +35,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     super.initState();
     _loadUserRole();
     _searchController.addListener(_onSearchChanged);
+    _loadCustomers(); // Load customers on page init
   }
 
   @override
@@ -53,9 +55,8 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     if (_searchController.text.isEmpty) {
       setState(() {
         _searchQuery = '';
-        _customers = [];
-        _pagination = null;
       });
+      _loadCustomers(); // Load default customers when search is cleared
       return;
     }
 
@@ -70,6 +71,42 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     });
   }
 
+  Future<void> _loadCustomers() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _currentPage = 1;
+    });
+
+    try {
+      final result = await _customerService.getCustomersWithRetailerDetails(
+        page: _currentPage,
+        limit: _limit,
+        userType: 'customer',
+        isActive: 'Y',
+      );
+
+      if (result['success'] == true && result['data'] != null) {
+        final response = CustomerWithRetailerResponse.fromJson(result);
+        setState(() {
+          _customers = response.customers;
+          _pagination = response.pagination;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = result['message'] ?? 'Failed to load customers';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) return;
 
@@ -81,17 +118,17 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     });
 
     try {
-      final result = await _customerService.searchCustomers(
+      final result = await _customerService.searchCustomersWithRetailerDetails(
         query: query,
         page: _currentPage,
         limit: _limit,
       );
 
       if (result['success'] == true && result['data'] != null) {
-        final customersData = result['data']['customers'] as List;
+        final response = CustomerWithRetailerResponse.fromJson(result);
         setState(() {
-          _customers = customersData.map((c) => Customer.fromJson(c)).toList();
-          _pagination = result['data']['pagination'];
+          _customers = response.customers;
+          _pagination = response.pagination;
           _isSearching = false;
         });
       } else {
@@ -109,11 +146,15 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
   }
 
   Future<void> _loadNextPage() async {
-    if (_pagination != null && _currentPage < _pagination!['totalPages']) {
+    if (_pagination != null && _currentPage < _pagination!.totalPages) {
       setState(() {
         _currentPage++;
       });
-      await _performSearch(_searchQuery);
+      if (_searchQuery.isNotEmpty) {
+        await _performSearch(_searchQuery);
+      } else {
+        await _loadCustomers();
+      }
     }
   }
 
@@ -122,7 +163,11 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
       setState(() {
         _currentPage--;
       });
-      await _performSearch(_searchQuery);
+      if (_searchQuery.isNotEmpty) {
+        await _performSearch(_searchQuery);
+      } else {
+        await _loadCustomers();
+      }
     }
   }
 
@@ -140,7 +185,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     });
   }
 
-  void _navigateToCustomerDetails(Customer customer) {
+  void _navigateToCustomerDetails(CustomerWithRetailerDetails customer) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -153,7 +198,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     return DateFormat('d MMM yyyy, HH:mm').format(date);
   }
 
-  Widget _buildCustomerCard(Customer customer) {
+  Widget _buildCustomerCard(CustomerWithRetailerDetails customer) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -188,7 +233,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          customer.username,
+                          customer.displayName,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -202,25 +247,60 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                             fontSize: 14,
                           ),
                         ),
+                        if (customer.hasRetailer && customer.retShopName != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Shop: ${customer.retShopName}',
+                            style: TextStyle(
+                              color: Colors.blue.shade600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  if (customer.retCode != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        customer.retCode!,
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                  Column(
+                    children: [
+                      if (customer.retCode != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            customer.retCode!,
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      if (customer.hasRetailer) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: customer.isRetailerActive 
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            customer.isRetailerActive ? 'Active Retailer' : 'Inactive Retailer',
+                            style: TextStyle(
+                              color: customer.isRetailerActive ? Colors.green : Colors.red,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -229,7 +309,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                   Icon(Icons.phone, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
-                    '+91 ${customer.mobile}',
+                    customer.formattedMobile,
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                   const SizedBox(width: 16),
@@ -237,27 +317,46 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '${customer.city}, ${customer.province}',
+                      '${customer.userCity}, ${customer.userProvince}',
                       style: TextStyle(color: Colors.grey.shade600),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
+              if (customer.hasRetailer && customer.fullRetailerAddress != 'No retailer address') ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.store, size: 16, color: Colors.blue.shade600),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Retailer: ${customer.fullRetailerAddress}',
+                        style: TextStyle(
+                          color: Colors.blue.shade600,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Created: ${_formatDate(customer.createdDate)}',
+                    'Created: ${customer.formattedCreatedDate}',
                     style: TextStyle(
                       color: Colors.grey.shade500,
                       fontSize: 12,
                     ),
                   ),
-                  if (customer.createdBy.isNotEmpty)
+                  if (customer.userCreatedBy.isNotEmpty)
                     Text(
-                      'By: ${customer.createdBy}',
+                      'By: ${customer.userCreatedBy}',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 12,
@@ -275,10 +374,10 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
   Widget _buildPaginationControls() {
     if (_pagination == null) return const SizedBox.shrink();
 
-    final totalPages = _pagination!['totalPages'] ?? 1;
-    final hasNext = _pagination!['hasNext'] ?? false;
-    final hasPrev = _pagination!['hasPrev'] ?? false;
-    final totalCustomers = _pagination!['totalCustomers'] ?? 0;
+    final totalPages = _pagination!.totalPages;
+    final hasNext = _pagination!.hasNext;
+    final hasPrev = _pagination!.hasPrev;
+    final totalCustomers = _pagination!.totalCustomers;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -330,13 +429,13 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.search,
+              Icons.people_outline,
               size: 64,
               color: Colors.grey.shade400,
             ),
             const SizedBox(height: 16),
             Text(
-              'Search for customers',
+              'No customers found',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey.shade600,
@@ -345,7 +444,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter a name, mobile number, email, or city to find customers',
+              'No customers available at the moment',
               style: TextStyle(
                 color: Colors.grey.shade500,
               ),
@@ -413,7 +512,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search customers by name, mobile, email, or city...',
+                    hintText: 'Search customers and retailers by name, mobile, email, or city...',
                     hintStyle: TextStyle(color: Colors.grey.shade400),
                     prefixIcon: const Icon(Icons.search, color: Colors.grey),
                     suffixIcon: _searchController.text.isNotEmpty

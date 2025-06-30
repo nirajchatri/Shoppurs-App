@@ -182,7 +182,7 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
       
       // Set current photo URL
       if (data['RET_PHOTO'] != null && data['RET_PHOTO'].toString().isNotEmpty) {
-        _currentPhotoUrl = ApiConfig.retailerPhoto(data['RET_PHOTO']);
+        _currentPhotoUrl = data['RET_PHOTO'];
       }
     });
   }
@@ -643,9 +643,15 @@ class _AdminEditRetailerPageState extends State<AdminEditRetailerPage> {
                                             fit: BoxFit.cover,
                                             width: 120,
                                             height: 120,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return _buildPlaceholderAvatar();
-                                            },
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              width: 120,
+                                              height: 120,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade200,
+                                                borderRadius: BorderRadius.circular(50),
+                                              ),
+                                              child: const Icon(Icons.store, size: 50, color: Colors.grey),
+                                            ),
                                           )
                                         : _buildPlaceholderAvatar(),
                               ),

@@ -159,7 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               child: Image.network(
-                '${ApiConfig.baseUrl}/uploads/retailers/qrcode/${retailer['BARCODE_URL']}',
+                retailer['BARCODE_URL'],
                 width: 150,
                 height: 150,
                 fit: BoxFit.contain,
@@ -190,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Check if we have profile data with PHOTO field
     if (_profileData != null && _profileData!['PHOTO'] != null && _profileData!['PHOTO'].toString().isNotEmpty) {
       return Image.network(
-        '${ApiConfig.baseUrl}/${_profileData!['PHOTO']}',
+        _profileData!['PHOTO'],
         fit: BoxFit.cover,
         width: 90,
         height: 90,
@@ -201,7 +201,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Fallback to photo_url if PHOTO is not available
     if (_profileData != null && _profileData!['photo_url'] != null && _profileData!['photo_url'].toString().isNotEmpty) {
       return Image.network(
-        '${ApiConfig.baseUrl}${_profileData!['photo_url']}',
+        _profileData!['photo_url'],
         fit: BoxFit.cover,
         width: 90,
         height: 90,
@@ -341,6 +341,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         _ProfileOption(
+                          icon: Icons.person_search,
+                          label: 'Customer Leads',
+                          onTap: () => Navigator.pushNamed(context, '/customer-leads'),
+                        ),
+                        _ProfileOption(
                           icon: Icons.supervisor_account,
                           label: 'User Management',
                           onTap: () => Navigator.pushNamed(context, '/user-management'),
@@ -361,6 +366,11 @@ class _ProfilePageState extends State<ProfilePage> {
                               builder: (context) => const CustomerManagementHub(),
                             ),
                           ),
+                        ),
+                        _ProfileOption(
+                          icon: Icons.person_search,
+                          label: 'Customer Leads',
+                          onTap: () => Navigator.pushNamed(context, '/customer-leads'),
                         ),
                       ],
                       _ProfileOption(

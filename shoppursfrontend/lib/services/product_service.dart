@@ -304,14 +304,19 @@ class ProductService {
       print('Response body: ${response.body}');
       
       final data = jsonDecode(response.body);
+      print('Parsed data: $data');
+      print('Success field: ${data['success']} (${data['success'].runtimeType})');
+      print('Message field: ${data['message']}');
       
-      if (response.statusCode == 200 && data['success'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
+        print('Condition met: Success response');
         return {
           'success': true,
           'data': data['data'],
-          'message': 'Product added successfully with images',
+          'message': data['message'] ?? 'Product added successfully with images',
         };
       } else {
+        print('Condition not met: Status=${response.statusCode}, Success=${data['success']}');
         return {
           'success': false,
           'message': data['message'] ?? 'Failed to add product with images',
@@ -413,7 +418,7 @@ class ProductService {
       
       final data = jsonDecode(response.body);
       
-      if (response.statusCode == 200 && data['success'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
         return {
           'success': true,
           'data': data['data'],

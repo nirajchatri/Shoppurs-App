@@ -152,9 +152,9 @@ class _EditRetailerPageState extends State<EditRetailerPage> {
       _shopOpenStatus = data['SHOP_OPEN_STATUS'] ?? 'Y';
       
       // Set current photo URL
-      if (data['RET_PHOTO'] != null && data['RET_PHOTO'].toString().isNotEmpty) {
-        _currentPhotoUrl = ApiConfig.retailerPhoto(data['RET_PHOTO']);
-      }
+              if (data['RET_PHOTO'] != null && data['RET_PHOTO'].toString().isNotEmpty) {
+          _currentPhotoUrl = data['RET_PHOTO'];
+        }
     });
   }
 

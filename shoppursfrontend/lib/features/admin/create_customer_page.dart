@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import '../../services/customer_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/customer_model.dart';
+import '../../models/customer_lead_model.dart';
 import '../../widgets/error_message_widget.dart';
 import '../../widgets/location_picker_map.dart';
 
 class CreateCustomerPage extends StatefulWidget {
-  const CreateCustomerPage({Key? key}) : super(key: key);
+  final CustomerLead? leadData;
+  
+  const CreateCustomerPage({Key? key, this.leadData}) : super(key: key);
 
   @override
   State<CreateCustomerPage> createState() => _CreateCustomerPageState();
@@ -49,6 +52,28 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
     _addresses.add(AddressForm());
     // Set default password
     _passwordController.text = '123456';
+    
+    // Pre-fill form if lead data is provided
+    if (widget.leadData != null) {
+      _prefillFromLead(widget.leadData!);
+    }
+  }
+  
+  void _prefillFromLead(CustomerLead lead) {
+    _usernameController.text = lead.custldName;
+    if (lead.custldEmailId != null && lead.custldEmailId!.isNotEmpty) {
+      _emailController.text = lead.custldEmailId!;
+    }
+    _mobileController.text = lead.custldMobileNo.toString();
+    _storeNameController.text = lead.custldShopName;
+    if (lead.custldCity != null && lead.custldCity!.isNotEmpty) {
+      _cityController.text = lead.custldCity!;
+    }
+    if (lead.custldState != null && lead.custldState!.isNotEmpty) {
+      _provinceController.text = lead.custldState!;
+    }
+    _zipController.text = lead.custldPinCode.toString();
+    _addressController.text = lead.custldAddress;
   }
 
   @override
@@ -755,9 +780,9 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
-          'Create Customer',
-          style: TextStyle(
+        title: Text(
+          widget.leadData != null ? 'Convert Lead to Customer' : 'Create Customer',
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
