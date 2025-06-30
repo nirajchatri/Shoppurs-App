@@ -30,7 +30,12 @@ const {
   getUserDetails,
   searchAdminEmployeeUsers,
   updateUserStatus,
-  getEmployeeDwrDetails
+  getEmployeeDwrDetails,
+  promoteEmployeeToAdmin,
+  getCustomerLeads,
+  searchCustomerLeads,
+  getCustomersWithRetailerDetails,
+  searchCustomersWithRetailerDetails
 } = require('../controllers/admin.controller');
 
 // Apply admin middleware to all routes
@@ -73,11 +78,20 @@ router.post('/create-customer-with-addresses', createCustomerWithMultipleAddress
 router.get('/get-customer-details/:customerId', getCustomerDetails);
 router.get('/search-customers', searchCustomers);
 
+// Customer Leads Management Routes
+router.get('/customer-leads', getCustomerLeads);
+router.get('/search-customer-leads', searchCustomerLeads);
+
+// Customer with Retailer Details Management Routes
+router.get('/customers-with-retailer-details', getCustomersWithRetailerDetails);
+router.get('/search-customers-with-retailer-details', searchCustomersWithRetailerDetails);
+
 // User Management Routes (Employee & Admin Creation)
 router.post('/create-employee-user', createEmployeeUser);
 router.post('/create-admin-user', createAdminUser);
 router.get('/get-user-details/:userId', getUserDetails);
 router.get('/search-admin-employee-users', searchAdminEmployeeUsers);
 router.put('/update-user-status/:userId', updateUserStatus);
+router.put('/promote-employee-to-admin/:userId', promoteEmployeeToAdmin);
 
 module.exports = router; 

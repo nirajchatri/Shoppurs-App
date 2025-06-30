@@ -172,6 +172,14 @@ const login = async (req, res) => {
 
     const user = users[0];
 
+    // Check if user account is active
+    if (user.ISACTIVE !== 'Y') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to login, please contact administrator'
+      });
+    }
+
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.PASSWORD);
     if (!isValidPassword) {

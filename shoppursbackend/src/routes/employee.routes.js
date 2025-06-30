@@ -19,7 +19,11 @@ const {
   createCustomerByEmployee,
   createCustomerWithMultipleAddressesByEmployee,
   getCustomerDetailsByEmployee,
-  searchCustomersByEmployee
+  searchCustomersByEmployee,
+  getCustomerLeadsByEmployee,
+  searchCustomerLeadsByEmployee,
+  getCustomersWithRetailerDetailsByEmployee,
+  searchCustomersWithRetailerDetailsByEmployee
 } = require('../controllers/employee.controller');
 
 // Apply employee middleware to all routes
@@ -51,5 +55,13 @@ router.post('/create-customer', createCustomerByEmployee);
 router.post('/create-customer-with-addresses', createCustomerWithMultipleAddressesByEmployee);
 router.get('/get-customer-details/:customerId', getCustomerDetailsByEmployee);
 router.get('/search-customers', searchCustomersByEmployee);
+
+// Customer Leads Management Routes
+router.get('/customer-leads', getCustomerLeadsByEmployee);
+router.get('/search-customer-leads', searchCustomerLeadsByEmployee);
+
+// Customer with Retailer Details Management Routes
+router.get('/customers-with-retailer-details', getCustomersWithRetailerDetailsByEmployee);
+router.get('/search-customers-with-retailer-details', searchCustomersWithRetailerDetailsByEmployee);
 
 module.exports = router; 

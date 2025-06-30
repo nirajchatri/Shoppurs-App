@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth.routes');
@@ -15,6 +16,51 @@ const settingsRoutes = require('./routes/settings.routes');
 const userRoutes = require('./routes/user.routes');
 
 const app = express();
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const timestamp = new Date().toISOString();
+  
+  // Log the incoming request
+  console.log(`\n🔄 [${timestamp}] ${req.method} ${req.originalUrl}`);
+  console.log(`📍 IP: ${req.ip || req.connection.remoteAddress}`);
+  console.log(`🌐 User-Agent: ${req.get('User-Agent') || 'Unknown'}`);
+  
+  // Log request body for POST/PUT requests (excluding sensitive data)
+  if ((req.method === 'POST' || req.method === 'PUT') && req.body) {
+    const bodyToLog = { ...req.body };
+    // Hide sensitive fields
+    if (bodyToLog.password) bodyToLog.password = '[HIDDEN]';
+    if (bodyToLog.token) bodyToLog.token = '[HIDDEN]';
+    console.log(`📦 Body:`, JSON.stringify(bodyToLog, null, 2));
+  }
+  
+  // Log query parameters
+  if (Object.keys(req.query).length > 0) {
+    console.log(`🔍 Query:`, req.query);
+  }
+  
+  // Capture response end to log completion
+  const originalSend = res.send;
+  res.send = function(data) {
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    console.log(`✅ [${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    
+    // Log response for errors
+    if (res.statusCode >= 400) {
+      console.log(`❌ Error Response:`, data);
+    }
+    
+    console.log(`${'='.repeat(80)}`);
+    
+    originalSend.call(this, data);
+  };
+  
+  next();
+});
 
 // CORS configuration for development and production
 const corsOptions = {
@@ -59,6 +105,15 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
+
+// Morgan HTTP request logger - choose one format:
+// 'combined' - Apache combined log format (detailed)
+// 'common' - Apache common log format
+// 'dev' - concise output colored by response status (good for development)
+// 'short' - shorter than default, also including response time
+// 'tiny' - minimal output
+app.use(morgan('dev')); // Good for development - shows method, url, status, response time
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -955,6 +955,93 @@ const addRetailer = async (req, res) => {
   }
 };
 
+// Promote Employee to Admin Role
+const promoteEmployeeToAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate required parameter
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Check if user exists and is currently an employee
+    const [existingUser] = await db.promise().query(
+      'SELECT USER_ID, USERNAME, EMAIL, MOBILE, USER_TYPE, UL_ID, ISACTIVE FROM user_info WHERE USER_ID = ? AND ISACTIVE = "Y"',
+      [userId]
+    );
+
+    if (existingUser.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
+    }
+
+    const user = existingUser[0];
+
+    // Check if user is currently an employee
+    if (user.USER_TYPE !== 'employee') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot promote user. Current role is '${user.USER_TYPE}'. Only employees can be promoted to admin.`
+      });
+    }
+
+    // Update user role from employee to admin
+    const [updateResult] = await db.promise().query(
+      `UPDATE user_info 
+       SET USER_TYPE = 'admin', UL_ID = 3, UPDATED_BY = ?, UPDATED_DATE = NOW()
+       WHERE USER_ID = ?`,
+      [req.user.USERNAME, userId]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update user role'
+      });
+    }
+
+    // Get updated user details
+    const [updatedUser] = await db.promise().query(
+      `SELECT USER_ID, UL_ID, USERNAME, EMAIL, MOBILE, CITY, PROVINCE, ZIP, 
+              ADDRESS, PHOTO, FCM_TOKEN, CREATED_DATE, CREATED_BY, UPDATED_DATE, 
+              UPDATED_BY, USER_TYPE, ISACTIVE, is_otp_verify
+       FROM user_info WHERE USER_ID = ?`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: `User '${user.USERNAME}' has been successfully promoted from employee to admin`,
+      data: {
+        user: updatedUser[0],
+        promotion_details: {
+          previous_role: 'employee',
+          new_role: 'admin',
+          previous_user_level: 2,
+          new_user_level: 3,
+          promoted_by: req.user.USERNAME,
+          promotion_date: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Promote employee to admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error promoting employee to admin',
+      error: error.message
+    });
+  }
+};
+
+
 const editRetailer = async (req, res) => {
   try {
     const { retailerId } = req.params;
@@ -2609,6 +2696,571 @@ const getEmployeeDwrDetails = async (req, res) => {
   }
 };
 
+// Customer Leads Management APIs
+const getCustomerLeads = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      type, 
+      status, 
+      city, 
+      state, 
+      search 
+    } = req.query;
+    
+    const offset = (page - 1) * limit;
+
+    // Build WHERE clause dynamically
+    let whereConditions = [];
+    let queryParams = [];
+
+    // Filter by type
+    if (type) {
+      whereConditions.push('CUSTLD_TYPE = ?');
+      queryParams.push(type);
+    }
+
+    // Filter by status
+    if (status) {
+      whereConditions.push('CUSTLD_DEL_STATUS = ?');
+      queryParams.push(status);
+    } else {
+      // Default to active leads only
+      whereConditions.push('CUSTLD_DEL_STATUS = ?');
+      queryParams.push('active');
+    }
+
+    // Filter by city
+    if (city) {
+      whereConditions.push('CUSTLD_CITY = ?');
+      queryParams.push(city);
+    }
+
+    // Filter by state
+    if (state) {
+      whereConditions.push('CUSTLD_STATE = ?');
+      queryParams.push(state);
+    }
+
+    // Search functionality
+    if (search) {
+      whereConditions.push(`(
+        CUSTLD_NAME LIKE ? OR 
+        CUSTLD_SHOP_NAME LIKE ? OR 
+        CUSTLD_MOBILE_NO LIKE ? OR 
+        CUSTLD_EMAIL_ID LIKE ? OR 
+        CUSTLD_ADDRESS LIKE ?
+      )`);
+      const searchPattern = `%${search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Get customer leads with pagination
+    const [leads] = await db.promise().query(
+      `SELECT 
+        CUSTLD_ID,
+        CUSTLD_TYPE,
+        CUSTLD_NAME,
+        CUSTLD_SHOP_NAME,
+        CUSTLD_MOBILE_NO,
+        CUSTLD_ADDRESS,
+        CUSTLD_PIN_CODE,
+        CUSTLD_EMAIL_ID,
+        CUSTLD_COUNTRY,
+        CUSTLD_STATE,
+        CUSTLD_CITY,
+        CUSTLD_GST_NO,
+        CUSTLD_DEL_STATUS,
+        CREATED_DATE,
+        UPDATED_DATE,
+        CREATED_BY,
+        UPDATED_BY
+       FROM cust_lead ${whereClause}
+       ORDER BY CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [...queryParams, parseInt(limit), offset]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total FROM cust_lead ${whereClause}`,
+      queryParams
+    );
+
+    const totalLeads = countResult[0].total;
+    const totalPages = Math.ceil(totalLeads / limit);
+
+    res.json({
+      success: true,
+      message: 'Customer leads fetched successfully',
+      data: {
+        leads,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalLeads: totalLeads,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        filters: {
+          type: type || null,
+          status: status || 'active',
+          city: city || null,
+          state: state || null,
+          search: search || null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get customer leads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customer leads',
+      error: error.message
+    });
+  }
+};
+
+const searchCustomerLeads = async (req, res) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Search customer leads by multiple fields
+    const [leads] = await db.promise().query(
+      `SELECT 
+        CUSTLD_ID,
+        CUSTLD_TYPE,
+        CUSTLD_NAME,
+        CUSTLD_SHOP_NAME,
+        CUSTLD_MOBILE_NO,
+        CUSTLD_ADDRESS,
+        CUSTLD_PIN_CODE,
+        CUSTLD_EMAIL_ID,
+        CUSTLD_COUNTRY,
+        CUSTLD_STATE,
+        CUSTLD_CITY,
+        CUSTLD_GST_NO,
+        CUSTLD_DEL_STATUS,
+        CREATED_DATE,
+        UPDATED_DATE,
+        CREATED_BY,
+        UPDATED_BY
+       FROM cust_lead 
+       WHERE CUSTLD_DEL_STATUS = 'active'
+       AND (
+         CUSTLD_NAME LIKE ? OR 
+         CUSTLD_SHOP_NAME LIKE ? OR 
+         CUSTLD_MOBILE_NO LIKE ? OR 
+         CUSTLD_EMAIL_ID LIKE ? OR 
+         CUSTLD_ADDRESS LIKE ? OR
+         CUSTLD_CITY LIKE ? OR
+         CUSTLD_STATE LIKE ?
+       )
+       ORDER BY 
+         CASE 
+           WHEN CUSTLD_NAME = ? THEN 1
+           WHEN CUSTLD_MOBILE_NO = ? THEN 1
+           WHEN CUSTLD_NAME LIKE ? THEN 2
+           WHEN CUSTLD_MOBILE_NO LIKE ? THEN 2
+           ELSE 3
+         END,
+         CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [
+        `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`,
+        query, query, `${query}%`, `${query}%`,
+        parseInt(limit), offset
+      ]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total
+       FROM cust_lead 
+       WHERE CUSTLD_DEL_STATUS = 'active'
+       AND (
+         CUSTLD_NAME LIKE ? OR 
+         CUSTLD_SHOP_NAME LIKE ? OR 
+         CUSTLD_MOBILE_NO LIKE ? OR 
+         CUSTLD_EMAIL_ID LIKE ? OR 
+         CUSTLD_ADDRESS LIKE ? OR
+         CUSTLD_CITY LIKE ? OR
+         CUSTLD_STATE LIKE ?
+       )`,
+      [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]
+    );
+
+    const totalLeads = countResult[0].total;
+    const totalPages = Math.ceil(totalLeads / limit);
+
+    res.json({
+      success: true,
+      message: 'Customer leads search completed',
+      data: {
+        leads: leads,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalLeads: totalLeads,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        searchQuery: query
+      }
+    });
+
+  } catch (error) {
+    console.error('Search customer leads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching customer leads',
+      error: error.message
+    });
+  }
+};
+
+// Customer with Retailer Details Management APIs
+const getCustomersWithRetailerDetails = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      userType, 
+      isActive, 
+      city, 
+      state, 
+      country,
+      retStatus,
+      search 
+    } = req.query;
+    
+    const offset = (page - 1) * limit;
+
+    // Build WHERE clause dynamically
+    let whereConditions = [];
+    let queryParams = [];
+
+    // Filter by user type (default to customer)
+    if (userType) {
+      whereConditions.push('u.USER_TYPE = ?');
+      queryParams.push(userType);
+    } else {
+      whereConditions.push('u.USER_TYPE = ?');
+      queryParams.push('customer');
+    }
+
+    // Filter by active status (default to active users)
+    if (isActive) {
+      whereConditions.push('u.ISACTIVE = ?');
+      queryParams.push(isActive);
+    } else {
+      whereConditions.push('u.ISACTIVE = ?');
+      queryParams.push('Y');
+    }
+
+    // Filter by city
+    if (city) {
+      whereConditions.push('(u.CITY = ? OR r.RET_CITY = ?)');
+      queryParams.push(city, city);
+    }
+
+    // Filter by state
+    if (state) {
+      whereConditions.push('(u.PROVINCE = ? OR r.RET_STATE = ?)');
+      queryParams.push(state, state);
+    }
+
+    // Filter by country
+    if (country) {
+      whereConditions.push('r.RET_COUNTRY = ?');
+      queryParams.push(country);
+    }
+
+    // Filter by retailer status
+    if (retStatus) {
+      whereConditions.push('r.RET_DEL_STATUS = ?');
+      queryParams.push(retStatus);
+    }
+
+    // Search functionality
+    if (search) {
+      whereConditions.push(`(
+        u.USERNAME LIKE ? OR 
+        u.EMAIL LIKE ? OR 
+        u.MOBILE LIKE ? OR 
+        u.ADDRESS LIKE ? OR
+        u.CITY LIKE ? OR
+        r.RET_NAME LIKE ? OR
+        r.RET_SHOP_NAME LIKE ? OR
+        r.RET_ADDRESS LIKE ? OR
+        r.RET_CITY LIKE ? OR
+        r.RET_CODE LIKE ?
+      )`);
+      const searchPattern = `%${search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, 
+                      searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Get customers with retailer details and pagination
+    const [customers] = await db.promise().query(
+      `SELECT 
+        u.USER_ID,
+        u.UL_ID,
+        u.USERNAME,
+        u.EMAIL,
+        u.MOBILE,
+        u.CITY as USER_CITY,
+        u.PROVINCE as USER_PROVINCE,
+        u.ZIP as USER_ZIP,
+        u.ADDRESS as USER_ADDRESS,
+        u.PHOTO as USER_PHOTO,
+        u.FCM_TOKEN,
+        u.CREATED_DATE as USER_CREATED_DATE,
+        u.CREATED_BY as USER_CREATED_BY,
+        u.UPDATED_DATE as USER_UPDATED_DATE,
+        u.UPDATED_BY as USER_UPDATED_BY,
+        u.USER_TYPE,
+        u.ISACTIVE as USER_ISACTIVE,
+        u.is_otp_verify,
+        r.RET_ID,
+        r.RET_CODE,
+        r.RET_TYPE,
+        r.RET_NAME,
+        r.RET_SHOP_NAME,
+        r.RET_MOBILE_NO,
+        r.RET_ADDRESS,
+        r.RET_PIN_CODE,
+        r.RET_EMAIL_ID,
+        r.RET_PHOTO,
+        r.RET_COUNTRY,
+        r.RET_STATE,
+        r.RET_CITY,
+        r.RET_GST_NO,
+        r.RET_LAT,
+        r.RET_LONG,
+        r.RET_DEL_STATUS,
+        r.CREATED_DATE as RET_CREATED_DATE,
+        r.UPDATED_DATE as RET_UPDATED_DATE,
+        r.CREATED_BY as RET_CREATED_BY,
+        r.UPDATED_BY as RET_UPDATED_BY,
+        r.SHOP_OPEN_STATUS,
+        r.BARCODE_URL
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO
+       ${whereClause}
+       ORDER BY u.CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [...queryParams, parseInt(limit), offset]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total 
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO
+       ${whereClause}`,
+      queryParams
+    );
+
+    const totalCustomers = countResult[0].total;
+    const totalPages = Math.ceil(totalCustomers / limit);
+
+    res.json({
+      success: true,
+      message: 'Customers with retailer details fetched successfully',
+      data: {
+        customers,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalCustomers: totalCustomers,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        filters: {
+          userType: userType || 'customer',
+          isActive: isActive || 'Y',
+          city: city || null,
+          state: state || null,
+          country: country || null,
+          retStatus: retStatus || null,
+          search: search || null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get customers with retailer details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customers with retailer details',
+      error: error.message
+    });
+  }
+};
+
+const searchCustomersWithRetailerDetails = async (req, res) => {
+  try {
+    const { query, page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Search customers with retailer details by multiple fields
+    const [customers] = await db.promise().query(
+      `SELECT 
+        u.USER_ID,
+        u.UL_ID,
+        u.USERNAME,
+        u.EMAIL,
+        u.MOBILE,
+        u.CITY as USER_CITY,
+        u.PROVINCE as USER_PROVINCE,
+        u.ZIP as USER_ZIP,
+        u.ADDRESS as USER_ADDRESS,
+        u.PHOTO as USER_PHOTO,
+        u.FCM_TOKEN,
+        u.CREATED_DATE as USER_CREATED_DATE,
+        u.CREATED_BY as USER_CREATED_BY,
+        u.UPDATED_DATE as USER_UPDATED_DATE,
+        u.UPDATED_BY as USER_UPDATED_BY,
+        u.USER_TYPE,
+        u.ISACTIVE as USER_ISACTIVE,
+        u.is_otp_verify,
+        r.RET_ID,
+        r.RET_CODE,
+        r.RET_TYPE,
+        r.RET_NAME,
+        r.RET_SHOP_NAME,
+        r.RET_MOBILE_NO,
+        r.RET_ADDRESS,
+        r.RET_PIN_CODE,
+        r.RET_EMAIL_ID,
+        r.RET_PHOTO,
+        r.RET_COUNTRY,
+        r.RET_STATE,
+        r.RET_CITY,
+        r.RET_GST_NO,
+        r.RET_LAT,
+        r.RET_LONG,
+        r.RET_DEL_STATUS,
+        r.CREATED_DATE as RET_CREATED_DATE,
+        r.UPDATED_DATE as RET_UPDATED_DATE,
+        r.CREATED_BY as RET_CREATED_BY,
+        r.UPDATED_BY as RET_UPDATED_BY,
+        r.SHOP_OPEN_STATUS,
+        r.BARCODE_URL
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO
+       WHERE u.USER_TYPE = 'customer' 
+       AND u.ISACTIVE = 'Y'
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.ADDRESS LIKE ? OR
+         u.CITY LIKE ? OR
+         r.RET_NAME LIKE ? OR
+         r.RET_SHOP_NAME LIKE ? OR
+         r.RET_ADDRESS LIKE ? OR
+         r.RET_CITY LIKE ? OR
+         r.RET_CODE LIKE ?
+       )
+       ORDER BY 
+         CASE 
+           WHEN u.USERNAME = ? THEN 1
+           WHEN u.MOBILE = ? THEN 1
+           WHEN r.RET_NAME = ? THEN 1
+           WHEN u.USERNAME LIKE ? THEN 2
+           WHEN u.MOBILE LIKE ? THEN 2
+           WHEN r.RET_NAME LIKE ? THEN 2
+           ELSE 3
+         END,
+         u.CREATED_DATE DESC
+       LIMIT ? OFFSET ?`,
+      [
+        `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, 
+        `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`,
+        query, query, query, `${query}%`, `${query}%`, `${query}%`,
+        parseInt(limit), offset
+      ]
+    );
+
+    // Get total count for pagination
+    const [countResult] = await db.promise().query(
+      `SELECT COUNT(*) as total
+       FROM user_info u 
+       LEFT JOIN retailer_info r ON u.MOBILE = r.RET_MOBILE_NO
+       WHERE u.USER_TYPE = 'customer' 
+       AND u.ISACTIVE = 'Y'
+       AND (
+         u.USERNAME LIKE ? OR 
+         u.EMAIL LIKE ? OR 
+         u.MOBILE LIKE ? OR 
+         u.ADDRESS LIKE ? OR
+         u.CITY LIKE ? OR
+         r.RET_NAME LIKE ? OR
+         r.RET_SHOP_NAME LIKE ? OR
+         r.RET_ADDRESS LIKE ? OR
+         r.RET_CITY LIKE ? OR
+         r.RET_CODE LIKE ?
+       )`,
+      [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, 
+       `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]
+    );
+
+    const totalCustomers = countResult[0].total;
+    const totalPages = Math.ceil(totalCustomers / limit);
+
+    res.json({
+      success: true,
+      message: 'Customers with retailer details search completed',
+      data: {
+        customers: customers,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalCustomers: totalCustomers,
+          limit: parseInt(limit),
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        },
+        searchQuery: query
+      }
+    });
+
+  } catch (error) {
+    console.error('Search customers with retailer details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching customers with retailer details',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addProduct,
   editProduct,
@@ -2637,5 +3289,10 @@ module.exports = {
   getUserDetails,
   searchAdminEmployeeUsers,
   updateUserStatus,
-  getEmployeeDwrDetails
+  getEmployeeDwrDetails,
+  promoteEmployeeToAdmin,
+  getCustomerLeads,
+  searchCustomerLeads,
+  getCustomersWithRetailerDetails,
+  searchCustomersWithRetailerDetails
 }; 
