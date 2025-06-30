@@ -1,4 +1,4 @@
-const base_url = "http://192.168.29.96:3000";
+const base_url = "https://api.shoppurs.in";
 
 module.exports = {
     base_url
