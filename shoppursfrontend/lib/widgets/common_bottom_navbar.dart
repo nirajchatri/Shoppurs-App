@@ -62,7 +62,7 @@ class CommonBottomNavBar extends StatelessWidget {
         }
         break;
       case 3:
-        Navigator.pushNamed(context, '/home');
+        Navigator.pushNamed(context, '/search');
         break;
       case 4:
         Navigator.pushNamed(context, '/profile');

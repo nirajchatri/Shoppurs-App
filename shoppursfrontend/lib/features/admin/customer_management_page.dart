@@ -19,11 +19,13 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
   final CustomerService _customerService = CustomerService();
   final AuthService _authService = AuthService();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   List<CustomerWithRetailerDetails> _customers = [];
   CustomerWithRetailerPagination? _pagination;
   bool _isLoading = false;
   bool _isSearching = false;
+  bool _isLoadingMore = false;
   String? _error;
   String? _userRole;
   int _currentPage = 1;
@@ -35,12 +37,14 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     super.initState();
     _loadUserRole();
     _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
     _loadCustomers(); // Load customers on page init
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -71,11 +75,74 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     });
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMoreData();
+    }
+  }
+
+  Future<void> _loadMoreData() async {
+    if (_isLoadingMore || _pagination == null || _currentPage >= _pagination!.totalPages) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final nextPage = _currentPage + 1;
+      final result = _searchQuery.isNotEmpty
+          ? await _customerService.searchCustomersWithRetailerDetails(
+              query: _searchQuery,
+              page: nextPage,
+              limit: _limit,
+            )
+          : await _customerService.getCustomersWithRetailerDetails(
+              page: nextPage,
+              limit: _limit,
+              userType: 'customer',
+              isActive: 'Y',
+            );
+
+      if (result['success'] == true && result['data'] != null) {
+        final response = CustomerWithRetailerResponse.fromJson(result);
+        if (mounted) {
+          setState(() {
+            _currentPage = nextPage;
+            _customers.addAll(response.customers);
+            _pagination = response.pagination;
+            _isLoadingMore = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading more data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadCustomers() async {
     setState(() {
       _isLoading = true;
       _error = null;
       _currentPage = 1;
+      _customers.clear(); // Clear existing customers when reloading
     });
 
     try {
@@ -115,6 +182,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
       _error = null;
       _searchQuery = query;
       _currentPage = 1;
+      _customers.clear(); // Clear existing customers when searching
     });
 
     try {
@@ -142,32 +210,6 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
         _error = e.toString();
         _isSearching = false;
       });
-    }
-  }
-
-  Future<void> _loadNextPage() async {
-    if (_pagination != null && _currentPage < _pagination!.totalPages) {
-      setState(() {
-        _currentPage++;
-      });
-      if (_searchQuery.isNotEmpty) {
-        await _performSearch(_searchQuery);
-      } else {
-        await _loadCustomers();
-      }
-    }
-  }
-
-  Future<void> _loadPreviousPage() async {
-    if (_currentPage > 1) {
-      setState(() {
-        _currentPage--;
-      });
-      if (_searchQuery.isNotEmpty) {
-        await _performSearch(_searchQuery);
-      } else {
-        await _loadCustomers();
-      }
     }
   }
 
@@ -371,118 +413,17 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
     );
   }
 
-  Widget _buildPaginationControls() {
-    if (_pagination == null) return const SizedBox.shrink();
-
-    final totalPages = _pagination!.totalPages;
-    final hasNext = _pagination!.hasNext;
-    final hasPrev = _pagination!.hasPrev;
-    final totalCustomers = _pagination!.totalCustomers;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Total: $totalCustomers customers',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: hasPrev ? _loadPreviousPage : null,
-                icon: const Icon(Icons.chevron_left),
-                style: IconButton.styleFrom(
-                  backgroundColor: hasPrev ? const Color(0xFF9B1B1B) : Colors.grey.shade300,
-                  foregroundColor: hasPrev ? Colors.white : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$_currentPage of $totalPages',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: hasNext ? _loadNextPage : null,
-                icon: const Icon(Icons.chevron_right),
-                style: IconButton.styleFrom(
-                  backgroundColor: hasNext ? const Color(0xFF9B1B1B) : Colors.grey.shade300,
-                  foregroundColor: hasNext ? Colors.white : Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    if (_searchQuery.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.people_outline,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No customers found',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'No customers available at the moment',
-              style: TextStyle(
-                color: Colors.grey.shade500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_search,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No customers found',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try searching with different keywords',
-              style: TextStyle(
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
+  Widget _buildLoadMoreIndicator() {
+    if (_isLoadingMore) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B1B1B)),
         ),
       );
     }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -491,7 +432,7 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text(
-          'Customer Management',
+          'Manage Customers',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -500,70 +441,49 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
         backgroundColor: const Color(0xFF9B1B1B),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          if (_userRole == 'admin')
+            IconButton(
+              icon: const Icon(Icons.person_add),
+              onPressed: _navigateToCreateCustomer,
+              tooltip: 'Add Customer',
+            ),
+        ],
       ),
       body: Column(
         children: [
-          // Search Section
+          // Search Bar
           Container(
-            color: const Color(0xFF9B1B1B),
             padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search customers and retailers by name, mobile, email, or city...',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.grey),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                                _customers = [];
-                                _pagination = null;
-                              });
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+            color: const Color(0xFF9B1B1B),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search customers...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                            _currentPage = 1;
+                          });
+                          _loadCustomers();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _navigateToCreateCustomer,
-                    icon: const Icon(Icons.person_add, color: Color(0xFF9B1B1B)),
-                    label: const Text(
-                      'Create New Customer',
-                      style: TextStyle(
-                        color: Color(0xFF9B1B1B),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-
-          // Content Section
+          // Customer List
           Expanded(
             child: _error != null
                 ? ErrorMessageWidget(
@@ -574,29 +494,48 @@ class _CustomerManagementPageState extends State<CustomerManagementPage> {
                       });
                       if (_searchQuery.isNotEmpty) {
                         _performSearch(_searchQuery);
+                      } else {
+                        _loadCustomers();
                       }
                     },
                   )
-                : _isSearching
+                : _isLoading
                     ? const Center(
                         child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B1B1B)),
                         ),
                       )
                     : _customers.isEmpty
-                        ? _buildEmptyState()
-                        : Column(
-                            children: [
-                              Expanded(
-                                child: ListView.builder(
-                                  itemCount: _customers.length,
-                                  itemBuilder: (context, index) {
-                                    return _buildCustomerCard(_customers[index]);
-                                  },
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
                                 ),
-                              ),
-                              _buildPaginationControls(),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No customers found',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _customers.length + 1, // +1 for the loading indicator
+                            itemBuilder: (context, index) {
+                              if (index == _customers.length) {
+                                return _buildLoadMoreIndicator();
+                              }
+                              return _buildCustomerCard(_customers[index]);
+                            },
                           ),
           ),
         ],

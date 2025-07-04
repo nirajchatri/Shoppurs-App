@@ -545,7 +545,7 @@ class _CustomerLeadsPageState extends State<CustomerLeadsPage> {
       child: DropdownButtonFormField<String>(
         value: value,
         decoration: InputDecoration(
-          labelText: label,
+          hintText: label,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide.none,

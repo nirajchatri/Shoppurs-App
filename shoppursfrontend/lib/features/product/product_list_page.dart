@@ -686,13 +686,22 @@ class _ProductListPageState extends State<ProductListPage> {
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Image.network(
-                                        prod.image1,
+                                      Container(
                                         width: 70,
                                         height: 70,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Icon(Icons.image_not_supported, size: 38, color: Colors.grey),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        clipBehavior: Clip.hardEdge,
+                                        child: Image.network(
+                                          prod.image1,
+                                          width: 70,
+                                          height: 70,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.image_not_supported, size: 38, color: Colors.grey),
+                                        ),
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
@@ -801,17 +810,23 @@ class _ProductListPageState extends State<ProductListPage> {
                                     }
                                     final prod = _searchResults[index];
                                     return ListTile(
-                                      leading: prod['PROD_IMAGE_1'] != null && prod['PROD_IMAGE_1'].toString().isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: Image.network(
+                                      leading: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        clipBehavior: Clip.hardEdge,
+                                        child: prod['PROD_IMAGE_1'] != null && prod['PROD_IMAGE_1'].toString().isNotEmpty
+                                            ? Image.network(
                                                 prod['PROD_IMAGE_1'],
                                                 width: 38,
                                                 height: 38,
                                                 fit: BoxFit.cover,
-                                              ),
-                                            )
-                                          : const Icon(Icons.image, size: 38, color: Colors.grey),
+                                              )
+                                            : const Icon(Icons.image, size: 38, color: Colors.grey),
+                                      ),
                                       title: _highlightSearchTerm(prod['PROD_NAME'] ?? '', _searchController.text.trim()),
                                       onTap: () => _onSearchResultTap(prod),
                                     );

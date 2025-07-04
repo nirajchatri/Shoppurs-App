@@ -656,23 +656,24 @@ class _CartPageState extends State<CartPage> {
                                       child: Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                                                    // Product Image
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              product['images']['image1'] ?? '',
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: Colors.grey[200],
-                                    child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                                  ),
-                            ),
-                          ),
+                                          // Product Image
+                                          Container(
+                                            width: 80,
+                                            height: 80,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            clipBehavior: Clip.hardEdge,
+                                            child: Image.network(
+                                              product['images']['image1'] ?? '',
+                                              width: 80,
+                                              height: 80,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  const Icon(Icons.image_not_supported, color: Colors.grey),
+                                            ),
+                                          ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
@@ -917,8 +918,14 @@ class _CartPageState extends State<CartPage> {
                                     }
                                     final prod = _searchResults[index];
                                     return ListTile(
-                                      leading: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
+                                      leading: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        clipBehavior: Clip.hardEdge,
                                         child: Image.network(
                                           prod['PROD_IMAGE_1'],
                                           fit: BoxFit.cover,

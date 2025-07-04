@@ -9,8 +9,15 @@ import '../../widgets/location_picker_map.dart';
 
 class CreateCustomerPage extends StatefulWidget {
   final CustomerLead? leadData;
+  final bool isEdit;
+  final Map<String, dynamic>? customerData;
   
-  const CreateCustomerPage({Key? key, this.leadData}) : super(key: key);
+  const CreateCustomerPage({
+    Key? key,
+    this.leadData,
+    this.isEdit = false,
+    this.customerData,
+  }) : super(key: key);
 
   @override
   State<CreateCustomerPage> createState() => _CreateCustomerPageState();
@@ -303,29 +310,7 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
             const SizedBox(height: 16),
 
             // Mobile
-            TextFormField(
-              controller: _mobileController,
-              decoration: const InputDecoration(
-                labelText: 'Mobile Number *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
-                prefixText: '+91 ',
-              ),
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-              ],
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter mobile number';
-                }
-                if (!_customerService.isValidMobile(value.trim())) {
-                  return 'Enter valid 10-digit mobile number starting with 6-9';
-                }
-                return null;
-              },
-            ),
+            _buildMobileField(),
             const SizedBox(height: 16),
 
             // Store Name
@@ -359,6 +344,33 @@ class _CreateCustomerPageState extends State<CreateCustomerPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMobileField() {
+    return TextFormField(
+      controller: _mobileController,
+      keyboardType: TextInputType.phone,
+      enabled: !widget.isEdit && widget.leadData == null, // Disable if editing or converting from lead
+      decoration: InputDecoration(
+        labelText: 'Mobile Number',
+        hintText: 'Enter mobile number',
+        prefixIcon: const Icon(Icons.phone),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+        fillColor: widget.isEdit || widget.leadData != null ? Colors.grey[100] : Colors.white,
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter mobile number';
+        }
+        if (!RegExp(r'^\d{10}$').hasMatch(value)) {
+          return 'Please enter a valid 10-digit mobile number';
+        }
+        return null;
+      },
     );
   }
 

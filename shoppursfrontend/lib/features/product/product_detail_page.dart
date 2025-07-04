@@ -373,7 +373,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           width: 180,
           height: 180,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Colors.grey[200],
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
@@ -389,17 +389,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           height: 250,
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Colors.grey[200],
             borderRadius: BorderRadius.circular(16),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              images[_selectedImageIndex],
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
-            ),
+          clipBehavior: Clip.hardEdge,
+          child: Image.network(
+            images[_selectedImageIndex],
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
           ),
         ),
         
@@ -428,21 +426,19 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           height: 70,
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected ? const Color(0xFF9B1B1B) : Colors.grey.shade300,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              images[index],
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.image_not_supported, size: 24, color: Colors.grey),
-                            ),
+                          clipBehavior: Clip.hardEdge,
+                          child: Image.network(
+                            images[index],
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.image_not_supported, size: 24, color: Colors.grey),
                           ),
                         ),
                       );
