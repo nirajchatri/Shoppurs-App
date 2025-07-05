@@ -150,7 +150,7 @@ app.use('/api/retailers', retailerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/user', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
