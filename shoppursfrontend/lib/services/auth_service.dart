@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../config/api_config.dart';
 import 'http_client.dart';
+import 'notification_service.dart';
 
 class AuthService {
   static const _storage = FlutterSecureStorage();
@@ -38,6 +39,9 @@ class AuthService {
           if (result['user'] != null) {
             await _saveUser(User.fromJson(result['user']));
           }
+          
+          // Update FCM token after successful login
+          await _updateFcmTokenAfterLogin();
         }
         return {
           'success': true,
@@ -182,6 +186,9 @@ class AuthService {
           if (result['user'] != null) {
             await _saveUser(User.fromJson(result['user']));
           }
+          
+          // Update FCM token after successful OTP verification
+          await _updateFcmTokenAfterLogin();
         }
       }
 
@@ -259,6 +266,38 @@ class AuthService {
     print('All cached data cleared');
   }
 
+  // FCM Token Update
+  Future<Map<String, dynamic>> updateFcmToken(String fcmToken) async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final result = await HttpClient.post(
+        '/api/user/update-fcm-token',
+        body: {
+          'fcm_token': fcmToken,
+        },
+        token: token,
+      );
+
+      if (result['success'] == true) {
+        print('✅ FCM token updated successfully: ${result['message']}');
+        return result;
+      } else {
+        print('❌ Failed to update FCM token: ${result['message']}');
+        return result;
+      }
+    } catch (e) {
+      print('❌ Error updating FCM token: $e');
+      return {
+        'success': false,
+        'message': 'Failed to update FCM token: $e',
+      };
+    }
+  }
+
   // Private helper methods
   Future<void> _saveUser(User user) async {
     final prefs = await SharedPreferences.getInstance();
@@ -268,5 +307,20 @@ class AuthService {
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
+  }
+
+  Future<void> _updateFcmTokenAfterLogin() async {
+    try {
+      final fcmToken = NotificationService.fcmToken;
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        print('🔥 Updating FCM token after login: ${fcmToken.substring(0, 20)}...');
+        await updateFcmToken(fcmToken);
+      } else {
+        print('🔥 No FCM token available to update');
+      }
+    } catch (e) {
+      print('🔥 Error updating FCM token after login: $e');
+      // Don't throw error as this shouldn't fail the login process
+    }
   }
 } 

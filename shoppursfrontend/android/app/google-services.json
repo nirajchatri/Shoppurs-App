@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "900741574486",
+    "project_id": "shoppurs-f65f7",
+    "storage_bucket": "shoppurs-f65f7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:900741574486:android:ab5bb87ba5f4f6b439f0f7",
+        "android_client_info": {
+          "package_name": "com.shoppursshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzgG2TRWGLFyUrlgRSlfQyquEN_4BJU7s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

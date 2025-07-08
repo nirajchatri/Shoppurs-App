@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 
 class StartupPage extends StatefulWidget {
   const StartupPage({Key? key}) : super(key: key);
@@ -18,6 +19,15 @@ class _StartupPageState extends State<StartupPage> {
   }
 
   Future<void> _checkAuth() async {
+    // Initialize notification service and get FCM token
+    try {
+      await NotificationService.initialize();
+      final fcmToken = NotificationService.fcmToken;
+      print('🔥 FCM Token in StartupPage: $fcmToken');
+    } catch (e) {
+      print('🔥 Error initializing notifications: $e');
+    }
+    
     final token = await _authService.getToken();
     final isOnboardingCompleted = await _authService.isOnboardingCompleted();
     

@@ -28,6 +28,11 @@ class ApiConfig {
   static String get authResetPasswordWithPhone => '$baseUrl/api/auth/reset-password-with-phone';
   
   // =============================================================================
+  // USER ENDPOINTS
+  // =============================================================================
+  static String get userUpdateFcmToken => '$baseUrl/api/user/update-fcm-token';
+  
+  // =============================================================================
   // CATEGORY ENDPOINTS
   // =============================================================================
   static String get categoriesList => '$baseUrl/api/categories/list';

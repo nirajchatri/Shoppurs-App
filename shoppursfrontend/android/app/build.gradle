@@ -2,6 +2,9 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+
+    // ✅ Add Google Services plugin
+    id "com.google.gms.google-services"
 }
 
 def keystoreProperties = new Properties()
@@ -18,6 +21,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        // Enable core library desugaring
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
@@ -35,16 +40,20 @@ android {
 
     signingConfigs {
         release {
-            storeFile     = file(keystoreProperties['storeFile'])
-            storePassword = keystoreProperties['storePassword']
-            keyAlias      = keystoreProperties['keyAlias']
-            keyPassword   = keystoreProperties['keyPassword']
+            if (keystorePropertiesFile.exists()) {
+                storeFile     = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+                keyAlias      = keystoreProperties['keyAlias']
+                keyPassword   = keystoreProperties['keyPassword']
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.release
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
             minifyEnabled = false
             shrinkResources = false
         }
@@ -56,4 +65,18 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // ✅ Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:33.16.0')
+
+    // ✅ Add required Firebase SDKs here
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-messaging'
+
+    // ✅ Core library desugaring for flutter_local_notifications
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+
+    // Other dependencies (if needed)
 }
