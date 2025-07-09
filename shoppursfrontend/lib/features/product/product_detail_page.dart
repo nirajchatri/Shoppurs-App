@@ -131,8 +131,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void _incrementQuantity() {
     if (_selectedUnit == null) return;
     final unitValue = int.parse(_selectedUnit!['PU_PROD_UNIT_VALUE'].toString());
+    final availableQoh = int.tryParse(_product?.prodQoh ?? '0') ?? 0;
+    
     setState(() {
-      _quantity += unitValue;
+      // Only increment if the new quantity doesn't exceed available stock
+      if (_quantity + unitValue <= availableQoh) {
+        _quantity += unitValue;
+      } else {
+        // Show message when trying to add more than available
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Only $availableQoh units available in stock'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     });
   }
 
@@ -153,6 +167,39 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return (_quantity / unitValue) * unitRate;
   }
 
+  Color _getStockStatusColor() {
+    final availableQoh = int.tryParse(_product?.prodQoh ?? '0') ?? 0;
+    if (availableQoh <= 0) {
+      return Colors.red;
+    } else if (availableQoh <= 5) {
+      return Colors.orange;
+    } else {
+      return Colors.green;
+    }
+  }
+
+  IconData _getStockStatusIcon() {
+    final availableQoh = int.tryParse(_product?.prodQoh ?? '0') ?? 0;
+    if (availableQoh <= 0) {
+      return Icons.error;
+    } else if (availableQoh <= 5) {
+      return Icons.warning;
+    } else {
+      return Icons.check_circle;
+    }
+  }
+
+  String _getStockStatusText() {
+    final availableQoh = int.tryParse(_product?.prodQoh ?? '0') ?? 0;
+    if (availableQoh <= 0) {
+      return 'OUT OF STOCK';
+    } else if (availableQoh <= 5) {
+      return 'LOW STOCK';
+    } else {
+      return 'IN STOCK';
+    }
+  }
+
   Future<void> _fetchCartCount() async {
     if (_user?.role.toLowerCase() != 'customer' && _user?.role.toLowerCase() != 'employee') return;
     
@@ -170,6 +217,19 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   Future<void> _addToCart() async {
     if (_product == null || _selectedUnitId == null) return;
+    
+    // Check if requested quantity is available
+    final availableQoh = int.tryParse(_product!.prodQoh ?? '0') ?? 0;
+    if (_quantity > availableQoh) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Only $availableQoh units available in stock'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     setState(() {
       _isAdding = true;
     });
@@ -230,6 +290,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       return const SizedBox.shrink(); // No button if user data is not loaded
     }
 
+    // Check if product is out of stock
+    final availableQoh = int.tryParse(_product?.prodQoh ?? '0') ?? 0;
+
     switch (_user!.role.toLowerCase()) {
       case 'admin':
         return SizedBox(
@@ -260,12 +323,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           height: 48,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9B1B1B),
+              backgroundColor: availableQoh > 0 ? const Color(0xFF9B1B1B) : Colors.grey,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: _isAdding ? null : _addToCart,
+            onPressed: (_isAdding || availableQoh <= 0) ? null : _addToCart,
             child: _isAdding
                 ? const SizedBox(
                     width: 20,
@@ -275,9 +338,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text(
-                    'Add to Bag',
-                    style: TextStyle(
+                : Text(
+                    availableQoh > 0 ? 'Add to Bag' : 'Out of Stock',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -552,6 +615,43 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 ),
                               ),
                             ],
+                            const SizedBox(height: 12),
+                            // Quantity on Hand Display
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: _getStockStatusColor().withOpacity(0.1),
+                                border: Border.all(color: _getStockStatusColor(), width: 1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _getStockStatusIcon(),
+                                    color: _getStockStatusColor(),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Stock: ${_product!.prodQoh ?? '0'} units available',
+                                    style: TextStyle(
+                                      color: _getStockStatusColor(),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _getStockStatusText(),
+                                    style: TextStyle(
+                                      color: _getStockStatusColor(),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               _product!.desc,
@@ -564,39 +664,59 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             if (_product!.units.isNotEmpty) ...[
                               _buildUnitDropdown(),
                               const SizedBox(height: 16),
-                              Row(
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Quantity:', style: TextStyle(fontWeight: FontWeight.w500)),
-                                  const SizedBox(width: 12),
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline),
-                                    onPressed: _selectedUnit != null ? _decrementQuantity : null,
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '$_quantity',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline),
-                                    onPressed: _selectedUnit != null ? _incrementQuantity : null,
-                                  ),
-                                  if (_selectedUnit != null) ...[
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _selectedUnit!['PU_PROD_UNIT'],
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey,
+                                  Row(
+                                    children: [
+                                      const Text('Quantity:', style: TextStyle(fontWeight: FontWeight.w500)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '(Max: ${_product!.prodQoh ?? '0'})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.remove_circle_outline),
+                                        onPressed: _selectedUnit != null ? _decrementQuantity : null,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.grey.shade300),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '$_quantity',
+                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.add_circle_outline),
+                                        onPressed: (_selectedUnit != null && 
+                                                   _quantity < (int.tryParse(_product!.prodQoh ?? '0') ?? 0)) 
+                                                 ? _incrementQuantity 
+                                                 : null,
+                                      ),
+                                      if (_selectedUnit != null) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _selectedUnit!['PU_PROD_UNIT'],
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
                             ],

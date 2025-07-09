@@ -33,6 +33,11 @@ class ApiConfig {
   static String get userUpdateFcmToken => '$baseUrl/api/user/update-fcm-token';
   
   // =============================================================================
+  // PAYMENT ENDPOINTS
+  // =============================================================================
+  static String get paymentCreateOrder => '$baseUrl/api/payment/create-order';
+  
+  // =============================================================================
   // CATEGORY ENDPOINTS
   // =============================================================================
   static String get categoriesList => '$baseUrl/api/categories/list';

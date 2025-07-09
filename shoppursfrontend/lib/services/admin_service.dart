@@ -179,4 +179,108 @@ class AdminService {
       throw Exception('Error fetching employees: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getLowStockProducts({
+    int page = 1,
+    int limit = 20,
+    String type = 'all',
+    String? category,
+    String? subCategory,
+    String sortBy = 'PROD_QOH',
+    String sortOrder = 'ASC',
+    String? search,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+        'type': type,
+        'sortBy': sortBy,
+        'sortOrder': sortOrder,
+      };
+
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
+      if (subCategory != null && subCategory.isNotEmpty) {
+        queryParams['subCategory'] = subCategory;
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/admin/low-stock-products')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to fetch low stock products');
+      }
+    } catch (e) {
+      print('Error in getLowStockProducts: $e');
+      throw Exception('Failed to fetch low stock products: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProductStock(
+    int productId, {
+    int? prodQoh,
+    int? prodReorderLevel,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // At least one field is required
+      if (prodQoh == null && prodReorderLevel == null) {
+        throw Exception('At least one field (PROD_QOH or PROD_REORDER_LEVEL) is required');
+      }
+
+      final requestBody = <String, dynamic>{};
+      if (prodQoh != null) {
+        requestBody['PROD_QOH'] = prodQoh;
+      }
+      if (prodReorderLevel != null) {
+        requestBody['PROD_REORDER_LEVEL'] = prodReorderLevel;
+      }
+
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/api/admin/update-product-stock/$productId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to update product stock');
+      }
+    } catch (e) {
+      print('Error in updateProductStock: $e');
+      throw Exception('Failed to update product stock: $e');
+    }
+  }
 } 

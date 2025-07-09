@@ -355,6 +355,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           label: 'Manage Employee Orders',
                           onTap: () => Navigator.pushNamed(context, '/employee-orders'),
                         ),
+                        _ProfileOption(
+                          icon: Icons.inventory_2_outlined,
+                          label: 'Manage Restock Products',
+                          onTap: () => Navigator.pushNamed(context, '/low-stock-products'),
+                        ),
                       ],
                       if (_user?.role.toLowerCase() == 'employee') ...[
                         _ProfileOption(
