@@ -23,7 +23,7 @@ router.post('/create-order', async (req, res) => {
     }
 
     // Convert amount to paise (₹1 = 100 paise)
-    // const amountInPaise = Math.round(amount * 100);
+    const amountInPaise = amount;
 
     // Create order options
     const options = {
