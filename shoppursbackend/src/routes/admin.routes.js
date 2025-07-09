@@ -35,7 +35,9 @@ const {
   getCustomerLeads,
   searchCustomerLeads,
   getCustomersWithRetailerDetails,
-  searchCustomersWithRetailerDetails
+  searchCustomersWithRetailerDetails,
+  getLowStockProducts,
+  updateProductStock
 } = require('../controllers/admin.controller');
 
 // Apply admin middleware to all routes
@@ -44,6 +46,8 @@ router.use(adminMiddleware);
 // Product Management Routes
 router.post('/add-product', productImagesUpload, addProduct);
 router.put('/edit-product/:productId', productImagesUpload, editProduct);
+router.get('/low-stock-products', getLowStockProducts);
+router.put('/update-product-stock/:productId', updateProductStock);
 
 // Category Management Routes
 router.post('/add-category', addCategory);

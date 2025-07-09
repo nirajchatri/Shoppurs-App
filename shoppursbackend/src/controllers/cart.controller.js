@@ -1,14 +1,15 @@
 const { pool: db } = require('../config/database');
 const { base_url } = require('../environment');
+const { sendNotification } = require('../utils/notificationService');
 
 const addToCart = async (req, res) => {
   try {
     const { productId, quantity, unitId } = req.body;
     const userId = req.user.userId;
 
-    // First check if product exists and get its details
+    // First check if product exists and get its details including stock
     const [products] = await db.promise().query(
-      'SELECT * FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT *, PROD_QOH FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -18,6 +19,9 @@ const addToCart = async (req, res) => {
         message: 'Product not found'
       });
     }
+
+    const product = products[0];
+    const availableStock = product.PROD_QOH || 0;
 
     // Check if product unit exists
     const [units] = await db.promise().query(
@@ -38,6 +42,27 @@ const addToCart = async (req, res) => {
       [userId, productId, unitId]
     );
 
+    // Calculate total quantity that will be in cart after this addition
+    const existingQuantity = existingItems.length > 0 ? existingItems[0].QUANTITY : 0;
+    const totalQuantityAfterAddition = existingQuantity + quantity;
+
+    // Check if total quantity exceeds available stock
+    if (totalQuantityAfterAddition > availableStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient stock available',
+        data: {
+          productName: product.PROD_NAME,
+          productCode: product.PROD_CODE,
+          requestedQuantity: quantity,
+          existingInCart: existingQuantity,
+          totalRequested: totalQuantityAfterAddition,
+          availableStock: availableStock,
+          maxCanAdd: Math.max(0, availableStock - existingQuantity)
+        }
+      });
+    }
+
     if (existingItems.length > 0) {
       // Update quantity if item exists
       await db.promise().query(
@@ -54,7 +79,13 @@ const addToCart = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Item added to cart successfully'
+      message: 'Item added to cart successfully',
+      data: {
+        productName: product.PROD_NAME,
+        quantityAdded: quantity,
+        totalInCart: totalQuantityAfterAddition,
+        availableStock: availableStock
+      }
     });
   } catch (error) {
     console.error('Add to cart error:', error);
@@ -71,9 +102,9 @@ const addToCartAuto = async (req, res) => {
     const { productId } = req.body;
     const userId = req.user.userId;
 
-    // First check if product exists and get its details
+    // First check if product exists and get its details including stock
     const [products] = await db.promise().query(
-      'SELECT * FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT *, PROD_QOH FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -83,6 +114,9 @@ const addToCartAuto = async (req, res) => {
         message: 'Product not found'
       });
     }
+
+    const product = products[0];
+    const availableStock = product.PROD_QOH || 0;
 
     // Get all units for this product and find the one with minimum PU_PROD_UNIT_VALUE
     const [units] = await db.promise().query(
@@ -106,6 +140,27 @@ const addToCartAuto = async (req, res) => {
       'SELECT * FROM cart WHERE USER_ID = ? AND PROD_ID = ? AND UNIT_ID = ?',
       [userId, productId, unitId]
     );
+
+    // Calculate total quantity that will be in cart after this addition
+    const existingQuantity = existingItems.length > 0 ? existingItems[0].QUANTITY : 0;
+    const totalQuantityAfterAddition = existingQuantity + quantity;
+
+    // Check if total quantity exceeds available stock
+    if (totalQuantityAfterAddition > availableStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient stock available',
+        data: {
+          productName: product.PROD_NAME,
+          productCode: product.PROD_CODE,
+          requestedQuantity: quantity,
+          existingInCart: existingQuantity,
+          totalRequested: totalQuantityAfterAddition,
+          availableStock: availableStock,
+          maxCanAdd: Math.max(0, availableStock - existingQuantity)
+        }
+      });
+    }
 
     if (existingItems.length > 0) {
       // Update quantity if item exists
@@ -131,7 +186,9 @@ const addToCartAuto = async (req, res) => {
         unitValue: selectedUnit.PU_PROD_UNIT_VALUE,
         quantity: quantity,
         rate: selectedUnit.PU_PROD_RATE,
-        total: selectedUnit.PU_PROD_RATE * quantity
+        total: selectedUnit.PU_PROD_RATE * quantity,
+        totalInCart: totalQuantityAfterAddition,
+        availableStock: availableStock
       }
     });
   } catch (error) {
@@ -172,9 +229,9 @@ const addToCartByBarcode = async (req, res) => {
 
     const productId = barcodeResults[0].PRDB_PROD_ID;
 
-    // Check if product exists and get its details
+    // Check if product exists and get its details including stock
     const [products] = await db.promise().query(
-      'SELECT * FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
+      'SELECT *, PROD_QOH FROM product_master WHERE PROD_ID = ? AND (DEL_STATUS IS NULL OR DEL_STATUS != "Y")',
       [productId]
     );
 
@@ -184,6 +241,9 @@ const addToCartByBarcode = async (req, res) => {
         message: 'Product not found or deleted'
       });
     }
+
+    const product = products[0];
+    const availableStock = product.PROD_QOH || 0;
 
     // Get all units for this product and find the one with minimum PU_PROD_UNIT_VALUE
     const [units] = await db.promise().query(
@@ -208,6 +268,28 @@ const addToCartByBarcode = async (req, res) => {
       [userId, productId, unitId]
     );
 
+    // Calculate total quantity that will be in cart after this addition
+    const existingQuantity = existingItems.length > 0 ? existingItems[0].QUANTITY : 0;
+    const totalQuantityAfterAddition = existingQuantity + quantity;
+
+    // Check if total quantity exceeds available stock
+    if (totalQuantityAfterAddition > availableStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient stock available',
+        data: {
+          barcode: PRDB_BARCODE,
+          productName: product.PROD_NAME,
+          productCode: product.PROD_CODE,
+          requestedQuantity: quantity,
+          existingInCart: existingQuantity,
+          totalRequested: totalQuantityAfterAddition,
+          availableStock: availableStock,
+          maxCanAdd: Math.max(0, availableStock - existingQuantity)
+        }
+      });
+    }
+
     if (existingItems.length > 0) {
       // Update quantity if item exists
       await db.promise().query(
@@ -228,13 +310,15 @@ const addToCartByBarcode = async (req, res) => {
       data: {
         barcode: PRDB_BARCODE,
         productId: productId,
-        productName: products[0].PROD_NAME,
+        productName: product.PROD_NAME,
         unitId: unitId,
         unitName: selectedUnit.PU_PROD_UNIT,
         unitValue: selectedUnit.PU_PROD_UNIT_VALUE,
         quantity: quantity,
         rate: selectedUnit.PU_PROD_RATE,
-        total: selectedUnit.PU_PROD_RATE * quantity
+        total: selectedUnit.PU_PROD_RATE * quantity,
+        totalInCart: totalQuantityAfterAddition,
+        availableStock: availableStock
       }
     });
   } catch (error) {
@@ -260,9 +344,9 @@ const editCartUnit = async (req, res) => {
       });
     }
 
-    // Get cart item and verify it belongs to the user
+    // Get cart item and verify it belongs to the user, including stock info
     const [cartItems] = await db.promise().query(
-      'SELECT * FROM cart WHERE CART_ID = ? AND USER_ID = ?',
+      'SELECT c.*, p.PROD_QOH, p.PROD_NAME, p.PROD_CODE FROM cart c JOIN product_master p ON c.PROD_ID = p.PROD_ID WHERE c.CART_ID = ? AND c.USER_ID = ?',
       [cartId, userId]
     );
 
@@ -275,6 +359,7 @@ const editCartUnit = async (req, res) => {
 
     const cartItem = cartItems[0];
     const productId = cartItem.PROD_ID;
+    const availableStock = cartItem.PROD_QOH || 0;
 
     // Validate that the new unit exists and belongs to the same product
     const [units] = await db.promise().query(
@@ -299,6 +384,25 @@ const editCartUnit = async (req, res) => {
     );
 
     if (existingItems.length > 0) {
+      // If item with new unit already exists, check if merging quantities would exceed stock
+      const existingQuantity = existingItems[0].QUANTITY;
+      const totalQuantityAfterMerge = existingQuantity + newQuantity;
+
+      if (totalQuantityAfterMerge > availableStock) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot change unit - would exceed available stock when merging with existing cart item',
+          data: {
+            productName: cartItem.PROD_NAME,
+            productCode: cartItem.PROD_CODE,
+            existingQuantityInCart: existingQuantity,
+            newUnitQuantity: newQuantity,
+            totalAfterMerge: totalQuantityAfterMerge,
+            availableStock: availableStock
+          }
+        });
+      }
+
       // If item with new unit already exists, merge quantities and delete current item
       await db.promise().query(
         'UPDATE cart SET QUANTITY = QUANTITY + ? WHERE USER_ID = ? AND PROD_ID = ? AND UNIT_ID = ?',
@@ -320,10 +424,26 @@ const editCartUnit = async (req, res) => {
           newQuantity: newQuantity,
           unitName: newUnit.PU_PROD_UNIT,
           unitValue: newUnit.PU_PROD_UNIT_VALUE,
-          rate: newUnit.PU_PROD_RATE
+          rate: newUnit.PU_PROD_RATE,
+          totalQuantityInCart: totalQuantityAfterMerge,
+          availableStock: availableStock
         }
       });
     } else {
+      // Check if new quantity exceeds available stock
+      if (newQuantity > availableStock) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot change unit - new quantity exceeds available stock',
+          data: {
+            productName: cartItem.PROD_NAME,
+            productCode: cartItem.PROD_CODE,
+            newUnitQuantity: newQuantity,
+            availableStock: availableStock
+          }
+        });
+      }
+
       // Update the cart item with new unit and quantity
       await db.promise().query(
         'UPDATE cart SET UNIT_ID = ?, QUANTITY = ? WHERE CART_ID = ? AND USER_ID = ?',
@@ -342,7 +462,8 @@ const editCartUnit = async (req, res) => {
           unitName: newUnit.PU_PROD_UNIT,
           unitValue: newUnit.PU_PROD_UNIT_VALUE,
           rate: newUnit.PU_PROD_RATE,
-          total: newUnit.PU_PROD_RATE * newQuantity
+          total: newUnit.PU_PROD_RATE * newQuantity,
+          availableStock: availableStock
         }
       });
     }
@@ -549,6 +670,7 @@ const placeOrder = async (req, res) => {
       SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP, p.PROD_CODE,
              p.PROD_DESC, p.PROD_CGST, p.PROD_IGST, p.PROD_SGST,
              p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, p.IS_BARCODE_AVAILABLE,
+             p.PROD_QOH,
              pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
       FROM cart c
       JOIN product_master p ON c.PROD_ID = p.PROD_ID
@@ -561,6 +683,32 @@ const placeOrder = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Cart is empty'
+        });
+      }
+
+      // Check stock availability for all cart items
+      const stockErrors = [];
+      for (const item of cartItems) {
+        const availableStock = item.PROD_QOH || 0;
+        const requestedQuantity = item.QUANTITY;
+        
+        if (requestedQuantity > availableStock) {
+          stockErrors.push({
+            productName: item.PROD_NAME,
+            productCode: item.PROD_CODE,
+            requested: requestedQuantity,
+            available: availableStock
+          });
+        }
+      }
+
+      // If any products don't have enough stock, return error
+      if (stockErrors.length > 0) {
+        await db.promise().query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Insufficient stock for some products',
+          stockErrors: stockErrors
         });
       }
 
@@ -657,6 +805,13 @@ const placeOrder = async (req, res) => {
           item.PROD_CODE || '', item.PROD_ID, item.PU_PROD_UNIT,
           item.IS_BARCODE_AVAILABLE || 0 // Use actual IS_BARCODE_AVAILABLE from product
         ]);
+
+        // Reduce stock quantity in product_master table
+        await db.promise().query(`
+          UPDATE product_master 
+          SET PROD_QOH = PROD_QOH - ?
+          WHERE PROD_ID = ?
+        `, [item.QUANTITY, item.PROD_ID]);
       }
 
       // Create payment record in cust_payment table
@@ -707,6 +862,20 @@ const placeOrder = async (req, res) => {
       // Commit transaction
       await db.promise().query('COMMIT');
 
+      const [users] = await db.promise().query(
+        'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+      );
+      
+      const fcmTokens = users.map(user => user.FCM_TOKEN);
+      
+      const result = await sendNotification(
+        fcmTokens,          // Single token or array
+        'New Order Placed',  // Title
+        `A new order worth ₹${orderTotal} has been placed.`, // Message
+        // Optional data
+      );
+
+
       res.status(201).json({
         success: true,
         message: 'Order placed successfully',
@@ -746,10 +915,11 @@ const increaseQuantity = async (req, res) => {
     const { cartId } = req.body;
     const userId = req.user.userId;
 
-    // Get cart item with product unit details
+    // Get cart item with product unit details and stock information
     const [cartItems] = await db.promise().query(`
-      SELECT c.*, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
+      SELECT c.*, p.PROD_QOH, p.PROD_NAME, p.PROD_CODE, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
       FROM cart c
+      JOIN product_master p ON c.PROD_ID = p.PROD_ID
       JOIN product_unit pu ON c.UNIT_ID = pu.PU_ID
       WHERE c.CART_ID = ? AND c.USER_ID = ?
     `, [cartId, userId]);
@@ -763,6 +933,26 @@ const increaseQuantity = async (req, res) => {
 
     const cartItem = cartItems[0];
     const unitValue = cartItem.PU_PROD_UNIT_VALUE;
+    const currentQuantity = cartItem.QUANTITY;
+    const availableStock = cartItem.PROD_QOH || 0;
+    const newQuantity = currentQuantity + unitValue;
+
+    // Check if increased quantity exceeds available stock
+    if (newQuantity > availableStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot increase quantity - insufficient stock available',
+        data: {
+          productName: cartItem.PROD_NAME,
+          productCode: cartItem.PROD_CODE,
+          currentQuantity: currentQuantity,
+          requestedIncrease: unitValue,
+          requestedTotal: newQuantity,
+          availableStock: availableStock,
+          maxPossibleQuantity: availableStock
+        }
+      });
+    }
 
     // Increase quantity by unit value
     await db.promise().query(
@@ -785,7 +975,8 @@ const increaseQuantity = async (req, res) => {
       data: {
         cartId: updatedItem[0].CART_ID,
         quantity: updatedItem[0].QUANTITY,
-        itemTotal: updatedItem[0].PU_PROD_RATE * updatedItem[0].QUANTITY
+        itemTotal: updatedItem[0].PU_PROD_RATE * updatedItem[0].QUANTITY,
+        availableStock: availableStock
       }
     });
   } catch (error) {

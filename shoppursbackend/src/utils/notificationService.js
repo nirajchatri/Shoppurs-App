@@ -217,9 +217,65 @@ const testFirebaseConnection = async () => {
   }
 };
 
+// Common utility function for sending notifications - Easy to use from any API
+const sendNotification = async (fcmTokens, title, body, data = {}) => {
+  try {
+    // Handle both single token and array of tokens
+    const tokens = Array.isArray(fcmTokens) ? fcmTokens : [fcmTokens];
+    
+    // Filter out null/undefined/empty tokens
+    const validTokens = tokens.filter(token => token && token.trim().length > 0);
+    
+    if (validTokens.length === 0) {
+      return {
+        success: false,
+        message: 'No valid FCM tokens provided',
+        data: null
+      };
+    }
+    
+    // Send notification using the existing service
+    const result = await sendNotificationToTokens(validTokens, title, body, data);
+    
+    return {
+      success: true,
+      message: `Notification sent to ${result.successCount} out of ${validTokens.length} devices`,
+      data: {
+        total_tokens: validTokens.length,
+        success_count: result.successCount,
+        failure_count: result.failureCount,
+        failed_tokens: result.failedTokens
+      }
+    };
+    
+  } catch (error) {
+    console.error('Error in sendNotification utility:', error);
+    return {
+      success: false,
+      message: 'Failed to send notification',
+      error: error.message,
+      data: null
+    };
+  }
+};
+
+// Quick notification function for simple use cases
+const quickNotify = async (fcmToken, title, message, customData = {}) => {
+  return await sendNotification(fcmToken, title, message, customData);
+};
+
+// Broadcast notification to multiple users
+const broadcastNotification = async (fcmTokens, title, message, customData = {}) => {
+  return await sendNotification(fcmTokens, title, message, customData);
+};
+
 module.exports = {
   sendNotificationToTokens,
   sendNotificationToToken,
   testFirebaseConnection,
-  initializeFirebase
+  initializeFirebase,
+  // New common functions
+  sendNotification,
+  quickNotify,
+  broadcastNotification
 }; 

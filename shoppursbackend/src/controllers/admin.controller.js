@@ -3261,6 +3261,335 @@ const searchCustomersWithRetailerDetails = async (req, res) => {
   }
 };
 
+// Get low stock and out of stock products for admin
+const getLowStockProducts = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      type = 'all', // 'all', 'out_of_stock', 'low_stock'
+      category,
+      subCategory,
+      sortBy = 'PROD_QOH', // 'PROD_QOH', 'PROD_NAME', 'CREATED_DATE'
+      sortOrder = 'ASC', // 'ASC', 'DESC'
+      search
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Build WHERE clause for stock conditions
+    let stockConditions = [];
+    
+    if (type === 'out_of_stock') {
+      stockConditions.push('(p.PROD_QOH IS NULL OR p.PROD_QOH <= 0)');
+    } else if (type === 'low_stock') {
+      stockConditions.push('(p.PROD_QOH > 0 AND p.PROD_REORDER_LEVEL > p.PROD_QOH)');
+    } else {
+      // Default: both out of stock and low stock
+      stockConditions.push('(p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)');
+    }
+
+    // Build additional WHERE conditions
+    let whereConditions = [
+      'p.DEL_STATUS != "Y"',
+      ...stockConditions
+    ];
+    let queryParams = [];
+
+    // Category filter
+    if (category) {
+      whereConditions.push('p.PROD_CAT_ID = ?');
+      queryParams.push(category);
+    }
+
+    // Sub-category filter
+    if (subCategory) {
+      whereConditions.push('p.PROD_SUB_CAT_ID = ?');
+      queryParams.push(subCategory);
+    }
+
+    // Search filter
+    if (search) {
+      whereConditions.push('(p.PROD_NAME LIKE ? OR p.PROD_CODE LIKE ? OR p.PROD_DESC LIKE ?)');
+      const searchPattern = `%${search}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern);
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Validate sort parameters
+    const validSortColumns = ['PROD_QOH', 'PROD_NAME', 'CREATED_DATE', 'PROD_REORDER_LEVEL', 'PROD_MRP'];
+    const validSortOrders = ['ASC', 'DESC'];
+    
+    const validatedSortBy = validSortColumns.includes(sortBy) ? sortBy : 'PROD_QOH';
+    const validatedSortOrder = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
+
+    // Main query to get low stock products
+    const query = `
+      SELECT 
+        p.PROD_ID,
+        p.PROD_SUB_CAT_ID,
+        p.PROD_NAME,
+        p.PROD_CODE,
+        p.PROD_DESC,
+        p.PROD_MRP,
+        p.PROD_SP,
+        p.PROD_REORDER_LEVEL,
+        p.PROD_QOH,
+        p.PROD_HSN_CODE,
+        p.PROD_CGST,
+        p.PROD_IGST,
+        p.PROD_SGST,
+        p.PROD_MFG_DATE,
+        p.PROD_EXPIRY_DATE,
+        p.PROD_MFG_BY,
+        p.PROD_IMAGE_1,
+        p.PROD_IMAGE_2,
+        p.PROD_IMAGE_3,
+        p.PROD_CAT_ID,
+        p.IS_BARCODE_AVAILABLE,
+        p.CREATED_DATE,
+        p.UPDATED_DATE,
+        p.CREATED_BY,
+        p.UPDATED_BY,
+        c.CATEGORY_NAME,
+        sc.SUB_CATEGORY_NAME,
+        CASE 
+          WHEN p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 THEN 'OUT_OF_STOCK'
+          WHEN p.PROD_REORDER_LEVEL > p.PROD_QOH THEN 'LOW_STOCK'
+          ELSE 'NORMAL'
+        END as STOCK_STATUS,
+        (p.PROD_REORDER_LEVEL - COALESCE(p.PROD_QOH, 0)) as SHORTAGE_QUANTITY
+      FROM product_master p
+      LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
+      LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
+      WHERE ${whereClause}
+      ORDER BY p.${validatedSortBy} ${validatedSortOrder}
+      LIMIT ? OFFSET ?
+    `;
+
+    const [products] = await db.promise().query(query, [...queryParams, parseInt(limit), offset]);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total_count 
+      FROM product_master p
+      WHERE ${whereClause}
+    `;
+
+    const [countResult] = await db.promise().query(countQuery, queryParams);
+    const totalCount = countResult[0].total_count;
+
+    // Get statistics
+    const [statsResult] = await db.promise().query(`
+      SELECT 
+        COUNT(CASE WHEN PROD_QOH IS NULL OR PROD_QOH <= 0 THEN 1 END) as out_of_stock_count,
+        COUNT(CASE WHEN PROD_QOH > 0 AND PROD_REORDER_LEVEL > PROD_QOH THEN 1 END) as low_stock_count,
+        COUNT(*) as total_low_stock_products,
+        SUM(CASE WHEN PROD_QOH IS NULL OR PROD_QOH <= 0 THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN PROD_QOH > 0 AND PROD_REORDER_LEVEL > PROD_QOH THEN 1 ELSE 0 END) as combined_count
+      FROM product_master p
+      WHERE p.DEL_STATUS != 'Y' 
+      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+    `);
+
+    // Get categories for filtering
+    const [categories] = await db.promise().query(`
+      SELECT DISTINCT c.CATEGORY_ID, c.CATEGORY_NAME 
+      FROM category c
+      JOIN product_master p ON c.CATEGORY_ID = p.PROD_CAT_ID
+      WHERE p.DEL_STATUS != 'Y' 
+      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+      ORDER BY c.CATEGORY_NAME
+    `);
+
+    // Get sub-categories for filtering
+    const [subCategories] = await db.promise().query(`
+      SELECT DISTINCT sc.SUB_CATEGORY_ID, sc.SUB_CATEGORY_NAME, sc.SUB_CATEGORY_CAT_ID
+      FROM sub_category sc
+      JOIN product_master p ON sc.SUB_CATEGORY_ID = p.PROD_SUB_CAT_ID
+      WHERE p.DEL_STATUS != 'Y' 
+      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+      ORDER BY sc.SUB_CATEGORY_NAME
+    `);
+
+    res.json({
+      success: true,
+      message: 'Low stock products fetched successfully',
+      data: {
+        products,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalCount / limit),
+          totalProducts: totalCount,
+          limit: parseInt(limit),
+          hasNext: page < Math.ceil(totalCount / limit),
+          hasPrev: page > 1
+        },
+        statistics: {
+          outOfStockCount: statsResult[0].out_of_stock_count,
+          lowStockCount: statsResult[0].low_stock_count,
+          totalLowStockProducts: statsResult[0].combined_count
+        },
+        filters: {
+          availableCategories: categories,
+          availableSubCategories: subCategories,
+          appliedFilters: {
+            type: type,
+            category: category || null,
+            subCategory: subCategory || null,
+            search: search || null,
+            sortBy: validatedSortBy,
+            sortOrder: validatedSortOrder
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get low stock products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching low stock products',
+      error: error.message
+    });
+  }
+};
+
+// Update product stock levels (quantity on hand and reorder level)
+const updateProductStock = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { PROD_QOH, PROD_REORDER_LEVEL } = req.body;
+
+    // Validate input
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product ID is required'
+      });
+    }
+
+    // Check if at least one field is provided
+    if (PROD_QOH === undefined && PROD_REORDER_LEVEL === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one field (PROD_QOH or PROD_REORDER_LEVEL) is required'
+      });
+    }
+
+    // Validate numeric values
+    if (PROD_QOH !== undefined) {
+      if (isNaN(PROD_QOH) || PROD_QOH < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'PROD_QOH must be a non-negative number'
+        });
+      }
+    }
+
+    if (PROD_REORDER_LEVEL !== undefined) {
+      if (isNaN(PROD_REORDER_LEVEL) || PROD_REORDER_LEVEL < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'PROD_REORDER_LEVEL must be a non-negative number'
+        });
+      }
+    }
+
+    // Check if product exists
+    const [existingProduct] = await db.promise().query(
+      'SELECT PROD_ID, PROD_NAME, PROD_CODE, PROD_QOH, PROD_REORDER_LEVEL FROM product_master WHERE PROD_ID = ? AND DEL_STATUS != "Y"',
+      [productId]
+    );
+
+    if (existingProduct.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found or has been deleted'
+      });
+    }
+
+    const currentProduct = existingProduct[0];
+
+    // Build dynamic update query
+    const updateFields = [];
+    const updateValues = [];
+
+    if (PROD_QOH !== undefined) {
+      updateFields.push('PROD_QOH = ?');
+      updateValues.push(parseFloat(PROD_QOH));
+    }
+
+    if (PROD_REORDER_LEVEL !== undefined) {
+      updateFields.push('PROD_REORDER_LEVEL = ?');
+      updateValues.push(parseFloat(PROD_REORDER_LEVEL));
+    }
+
+    // Add update metadata
+    updateFields.push('UPDATED_BY = ?', 'UPDATED_DATE = NOW()');
+    updateValues.push(req.user.USERNAME);
+
+    // Add productId for WHERE clause
+    updateValues.push(productId);
+
+    // Update the product
+    const updateQuery = `
+      UPDATE product_master 
+      SET ${updateFields.join(', ')}
+      WHERE PROD_ID = ?
+    `;
+
+    await db.promise().query(updateQuery, updateValues);
+
+    // Get updated product details
+    const [updatedProduct] = await db.promise().query(
+      'SELECT PROD_ID, PROD_NAME, PROD_CODE, PROD_QOH, PROD_REORDER_LEVEL, UPDATED_BY, UPDATED_DATE FROM product_master WHERE PROD_ID = ?',
+      [productId]
+    );
+
+    // Calculate stock status
+    const updated = updatedProduct[0];
+    let stockStatus = 'NORMAL';
+    if (updated.PROD_QOH === null || updated.PROD_QOH <= 0) {
+      stockStatus = 'OUT_OF_STOCK';
+    } else if (updated.PROD_REORDER_LEVEL > updated.PROD_QOH) {
+      stockStatus = 'LOW_STOCK';
+    }
+
+    res.json({
+      success: true,
+      message: 'Product stock levels updated successfully',
+      data: {
+        productId: updated.PROD_ID,
+        productName: updated.PROD_NAME,
+        productCode: updated.PROD_CODE,
+        previousValues: {
+          PROD_QOH: currentProduct.PROD_QOH,
+          PROD_REORDER_LEVEL: currentProduct.PROD_REORDER_LEVEL
+        },
+        currentValues: {
+          PROD_QOH: updated.PROD_QOH,
+          PROD_REORDER_LEVEL: updated.PROD_REORDER_LEVEL
+        },
+        stockStatus: stockStatus,
+        shortageQuantity: updated.PROD_REORDER_LEVEL > updated.PROD_QOH ? 
+          (updated.PROD_REORDER_LEVEL - updated.PROD_QOH) : 0,
+        updatedBy: updated.UPDATED_BY,
+        updatedDate: updated.UPDATED_DATE
+      }
+    });
+
+  } catch (error) {
+    console.error('Update product stock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating product stock levels',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addProduct,
   editProduct,
@@ -3294,5 +3623,7 @@ module.exports = {
   getCustomerLeads,
   searchCustomerLeads,
   getCustomersWithRetailerDetails,
-  searchCustomersWithRetailerDetails
+  searchCustomersWithRetailerDetails,
+  getLowStockProducts,
+  updateProductStock
 }; 

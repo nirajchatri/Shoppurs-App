@@ -6,6 +6,7 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 const { base_url } = require('../../environment');
+const { sendNotification } = require('../utils/notificationService');
 
 // Ensure upload directories exist
 const createDirectory = (dirPath) => {
@@ -424,6 +425,20 @@ const verifyOtp = async (req, res) => {
         }
       }
     }
+
+
+    const [users] = await db.promise().query(
+      'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+    );
+    
+    const fcmTokens = users.map(user => user.FCM_TOKEN);
+    
+    const result = await sendNotification(
+      fcmTokens,                     // Single token or array
+      'New Retailer Created',        // Title
+      `A new retailer has been successfully created with phone number ${phoneWithCode}`, // Message
+      // Optional data
+    );
 
     res.json({
       success: true,

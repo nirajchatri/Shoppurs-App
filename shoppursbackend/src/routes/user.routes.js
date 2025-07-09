@@ -18,7 +18,7 @@ router.put('/update-profile', userProfileUpload, updateProfile);
 router.get('/profile', getProfile);
 
 // FCM Token Routes
-router.put('/update-fcm-token', updateFcmToken);
+router.post('/update-fcm-token', updateFcmToken);
 router.post('/send-notification', sendNotification);
 router.get('/fcm-tokens', getAllFcmTokens);
 

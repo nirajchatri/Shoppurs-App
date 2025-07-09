@@ -264,7 +264,7 @@ const updateFcmToken = async (req, res) => {
 };
 
 // Send notification to users
-const sendNotification = async (   , res) => {
+const sendNotification = async (req, res) => {
   try {
     const { fcm_tokens, title, body, data = {} } = req.body;
 

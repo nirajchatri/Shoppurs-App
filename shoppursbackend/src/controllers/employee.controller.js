@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const QRCode = require('qrcode');
 const { base_url } = require('../environment');
+const { sendNotification } = require('../utils/notificationService');
 
 // Create directory function
 function createDirectory(dirPath) {
@@ -509,6 +510,7 @@ const placeOrderForCustomer = async (req, res) => {
       SELECT c.*, p.PROD_NAME, p.PROD_MRP, p.PROD_SP, p.PROD_CODE,
              p.PROD_DESC, p.PROD_CGST, p.PROD_IGST, p.PROD_SGST,
              p.PROD_IMAGE_1, p.PROD_IMAGE_2, p.PROD_IMAGE_3, p.IS_BARCODE_AVAILABLE,
+             p.PROD_QOH,
              pu.PU_PROD_UNIT, pu.PU_PROD_UNIT_VALUE, pu.PU_PROD_RATE
       FROM cart c
       JOIN product_master p ON c.PROD_ID = p.PROD_ID
@@ -521,6 +523,32 @@ const placeOrderForCustomer = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Employee cart is empty. Please add items to cart first.'
+      });
+    }
+
+    // Check stock availability for all cart items
+    const stockErrors = [];
+    for (const item of cartItems) {
+      const availableStock = item.PROD_QOH || 0;
+      const requestedQuantity = item.QUANTITY;
+      
+      if (requestedQuantity > availableStock) {
+        stockErrors.push({
+          productName: item.PROD_NAME,
+          productCode: item.PROD_CODE,
+          requested: requestedQuantity,
+          available: availableStock
+        });
+      }
+    }
+
+    // If any products don't have enough stock, return error
+    if (stockErrors.length > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient stock for some products',
+        stockErrors: stockErrors
       });
     }
 
@@ -591,8 +619,9 @@ const placeOrderForCustomer = async (req, res) => {
 
     const orderId = orderResult.insertId;
 
-    // Create order items in cust_order_details table
+    // Create order items in cust_order_details table AND reduce stock
     for (const item of cartItems) {
+      // Insert order item
       await connection.query(`
         INSERT INTO cust_order_details (
           COD_CO_ID, COD_QTY, PROD_NAME, PROD_BARCODE, PROD_DESC, 
@@ -608,6 +637,13 @@ const placeOrderForCustomer = async (req, res) => {
         item.PROD_CODE || '', item.PROD_ID, item.PU_PROD_UNIT,
         item.IS_BARCODE_AVAILABLE || 0 // Use actual IS_BARCODE_AVAILABLE from product
       ]);
+
+      // Reduce stock quantity in product_master table
+      await connection.query(`
+        UPDATE product_master 
+        SET PROD_QOH = PROD_QOH - ?
+        WHERE PROD_ID = ?
+      `, [item.QUANTITY, item.PROD_ID]);
     }
 
     // Get today's DWR_ID for the employee to link with cdwr_detail
@@ -1436,6 +1472,53 @@ const startDay = async (req, res) => {
       SELECT * FROM dwr_detail WHERE DWR_ID = ?
     `, [dwrId]);
 
+    // Send notification to admins about employee checkin
+    try {
+      // Get admin FCM tokens and employee name from database
+      const [users] = await db.promise().query(
+        'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+      );
+      
+      const [employeeData] = await db.promise().query(
+        'SELECT USERNAME FROM user_info WHERE USER_ID = ?',
+        [req.user.USER_ID]
+      );
+      
+      const fcmTokens = users.map(user => user.FCM_TOKEN);
+      
+      if (fcmTokens.length > 0) {
+        // Get employee name from database
+        const employeeName = employeeData.length > 0 ? employeeData[0].USERNAME : 'Employee';
+        const currentTime = new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        const resultNotification = await sendNotification(
+          fcmTokens,                     
+          'Employee Checkin Alert',        
+          `Employee ${employeeName} checked in at ${currentTime}`,
+          {
+            type: 'employee_checkin',
+            employee_id: employeeId.toString(),
+            employee_name: employeeName,
+            dwr_id: dwrId.toString(),
+            timestamp: currentTimestamp.toISOString()
+          }
+        );
+        
+        console.log('Checkin notification sent:', resultNotification);
+      }
+    } catch (notificationError) {
+      console.error('Error sending checkin notification:', notificationError);
+      // Don't fail the API if notification fails
+    }
+
     res.json({
       success: true,
       message: 'Day started successfully!',
@@ -1530,6 +1613,54 @@ const endDay = async (req, res) => {
     const [updatedDwr] = await db.promise().query(`
       SELECT * FROM dwr_detail WHERE DWR_ID = ?
     `, [dwr.DWR_ID]);
+
+    // Send notification to admins about employee checkout
+    try {
+      // Get admin FCM tokens and employee name from database
+      const [users] = await db.promise().query(
+        'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+      );
+      
+      const [employeeData] = await db.promise().query(
+        'SELECT USERNAME FROM user_info WHERE USER_ID = ?',
+        [req.user.USER_ID]
+      );
+      
+      const fcmTokens = users.map(user => user.FCM_TOKEN);
+      
+      if (fcmTokens.length > 0) {
+        // Get employee name from database
+        const employeeName = employeeData.length > 0 ? employeeData[0].USERNAME : 'Employee';
+        const currentTime = new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        const resultNotification = await sendNotification(
+          fcmTokens,                     
+          'Employee Checkout Alert',        
+          `Employee ${employeeName} checked out at ${currentTime}`,
+          {
+            type: 'employee_checkout',
+            employee_id: employeeId.toString(),
+            employee_name: employeeName,
+            dwr_id: dwr.DWR_ID.toString(),
+            total_expenses: (DWR_EXPENSES || 0).toString(),
+            timestamp: currentTimestamp.toISOString()
+          }
+        );
+        
+        console.log('Checkout notification sent:', resultNotification);
+      }
+    } catch (notificationError) {
+      console.error('Error sending checkout notification:', notificationError);
+      // Don't fail the API if notification fails
+    }
 
     res.json({
       success: true,
@@ -1743,6 +1874,29 @@ const createCustomerByEmployee = async (req, res) => {
       'SELECT * FROM customer_address WHERE USER_ID = ? AND DEL_STATUS = "N"',
       [userId]
     );
+
+
+    
+    
+    const [users] = await db.promise().query(
+      'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+    );
+    
+    const fcmTokens = users.map(user => user.FCM_TOKEN);
+    
+    const result = await sendNotification(
+      fcmTokens,                     // Single token or array
+      'New Retailer Created',        // Title
+      `A new retailer has been successfully created`, // Message
+      // Optional data
+    );
+
+
+
+
+
+
+
 
     res.status(201).json({
       success: true,
@@ -1972,6 +2126,26 @@ const createCustomerWithMultipleAddressesByEmployee = async (req, res) => {
       'SELECT * FROM customer_address WHERE USER_ID = ? AND DEL_STATUS = "N"',
       [userId]
     );
+
+
+
+
+    
+    const [users] = await db.promise().query(
+      'SELECT FCM_TOKEN FROM user_info WHERE ISACTIVE = "Y" AND FCM_TOKEN IS NOT NULL AND USER_TYPE = "admin"'
+    );
+    
+    const fcmTokens = users.map(user => user.FCM_TOKEN);
+    
+    const result = await sendNotification(
+      fcmTokens,                     // Single token or array
+      'New Retailer Created',        // Title
+      `A new retailer has been successfully created`, // Message
+      // Optional data
+    );
+
+
+
 
     res.status(201).json({
       success: true,
