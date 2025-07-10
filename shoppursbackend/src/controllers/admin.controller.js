@@ -3281,12 +3281,12 @@ const getLowStockProducts = async (req, res) => {
     let stockConditions = [];
     
     if (type === 'out_of_stock') {
-      stockConditions.push('(p.PROD_QOH IS NULL OR p.PROD_QOH <= 0)');
+      stockConditions.push('(p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0)');
     } else if (type === 'low_stock') {
-      stockConditions.push('(p.PROD_QOH > 0 AND p.PROD_REORDER_LEVEL > p.PROD_QOH)');
+      stockConditions.push('(CAST(p.PROD_QOH AS DECIMAL(10,2)) > 0 AND CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)))');
     } else {
       // Default: both out of stock and low stock
-      stockConditions.push('(p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)');
+      stockConditions.push('(p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 OR CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)))');
     }
 
     // Build additional WHERE conditions
@@ -3355,11 +3355,15 @@ const getLowStockProducts = async (req, res) => {
         c.CATEGORY_NAME,
         sc.SUB_CATEGORY_NAME,
         CASE 
-          WHEN p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 THEN 'OUT_OF_STOCK'
-          WHEN p.PROD_REORDER_LEVEL > p.PROD_QOH THEN 'LOW_STOCK'
+          WHEN p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 THEN 'OUT_OF_STOCK'
+          WHEN CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)) THEN 'LOW_STOCK'
           ELSE 'NORMAL'
         END as STOCK_STATUS,
-        (p.PROD_REORDER_LEVEL - COALESCE(p.PROD_QOH, 0)) as SHORTAGE_QUANTITY
+        CASE 
+          WHEN p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 THEN CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2))
+          WHEN CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)) THEN (CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) - CAST(p.PROD_QOH AS DECIMAL(10,2)))
+          ELSE 0
+        END as SHORTAGE_QUANTITY
       FROM product_master p
       LEFT JOIN category c ON p.PROD_CAT_ID = c.CATEGORY_ID
       LEFT JOIN sub_category sc ON p.PROD_SUB_CAT_ID = sc.SUB_CATEGORY_ID
@@ -3383,14 +3387,14 @@ const getLowStockProducts = async (req, res) => {
     // Get statistics
     const [statsResult] = await db.promise().query(`
       SELECT 
-        COUNT(CASE WHEN PROD_QOH IS NULL OR PROD_QOH <= 0 THEN 1 END) as out_of_stock_count,
-        COUNT(CASE WHEN PROD_QOH > 0 AND PROD_REORDER_LEVEL > PROD_QOH THEN 1 END) as low_stock_count,
+        COUNT(CASE WHEN PROD_QOH IS NULL OR CAST(PROD_QOH AS DECIMAL(10,2)) <= 0 THEN 1 END) as out_of_stock_count,
+        COUNT(CASE WHEN CAST(PROD_QOH AS DECIMAL(10,2)) > 0 AND CAST(PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(PROD_QOH AS DECIMAL(10,2)) THEN 1 END) as low_stock_count,
         COUNT(*) as total_low_stock_products,
-        SUM(CASE WHEN PROD_QOH IS NULL OR PROD_QOH <= 0 THEN 1 ELSE 0 END) +
-        SUM(CASE WHEN PROD_QOH > 0 AND PROD_REORDER_LEVEL > PROD_QOH THEN 1 ELSE 0 END) as combined_count
+        SUM(CASE WHEN PROD_QOH IS NULL OR CAST(PROD_QOH AS DECIMAL(10,2)) <= 0 THEN 1 ELSE 0 END) +
+        SUM(CASE WHEN CAST(PROD_QOH AS DECIMAL(10,2)) > 0 AND CAST(PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(PROD_QOH AS DECIMAL(10,2)) THEN 1 ELSE 0 END) as combined_count
       FROM product_master p
       WHERE p.DEL_STATUS != 'Y' 
-      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+      AND (p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 OR CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)))
     `);
 
     // Get categories for filtering
@@ -3399,7 +3403,7 @@ const getLowStockProducts = async (req, res) => {
       FROM category c
       JOIN product_master p ON c.CATEGORY_ID = p.PROD_CAT_ID
       WHERE p.DEL_STATUS != 'Y' 
-      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+      AND (p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 OR CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)))
       ORDER BY c.CATEGORY_NAME
     `);
 
@@ -3409,7 +3413,7 @@ const getLowStockProducts = async (req, res) => {
       FROM sub_category sc
       JOIN product_master p ON sc.SUB_CATEGORY_ID = p.PROD_SUB_CAT_ID
       WHERE p.DEL_STATUS != 'Y' 
-      AND (p.PROD_QOH IS NULL OR p.PROD_QOH <= 0 OR p.PROD_REORDER_LEVEL > p.PROD_QOH)
+      AND (p.PROD_QOH IS NULL OR CAST(p.PROD_QOH AS DECIMAL(10,2)) <= 0 OR CAST(p.PROD_REORDER_LEVEL AS DECIMAL(10,2)) > CAST(p.PROD_QOH AS DECIMAL(10,2)))
       ORDER BY sc.SUB_CATEGORY_NAME
     `);
 
