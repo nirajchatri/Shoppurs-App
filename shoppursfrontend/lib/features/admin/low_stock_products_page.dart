@@ -685,7 +685,7 @@ class _LowStockProductsPageState extends State<LowStockProductsPage> {
     final stockStatus = product['STOCK_STATUS'] ?? '';
     final qoh = int.tryParse(product['PROD_QOH']?.toString() ?? '0') ?? 0;
     final reorderLevel = int.tryParse(product['PROD_REORDER_LEVEL']?.toString() ?? '0') ?? 0;
-    final shortageQty = product['SHORTAGE_QUANTITY'] ?? 0;
+    final shortageQty = double.tryParse(product['SHORTAGE_QUANTITY']?.toString() ?? '0') ?? 0;
     
     Color statusColor = Colors.green;
     if (stockStatus == 'OUT_OF_STOCK') {
@@ -716,35 +716,6 @@ class _LowStockProductsPageState extends State<LowStockProductsPage> {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (product['PROD_CODE'] != null)
-                        Text(
-                          'Code: ${product['PROD_CODE']}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            '${product['CAT_NAME'] ?? 'Unknown'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                          if (product['SUB_CAT_NAME'] != null) ...[
-                            Text(' • ${product['SUB_CAT_NAME']}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
                     ],
                   ),
@@ -874,12 +845,6 @@ class _LowStockProductsPageState extends State<LowStockProductsPage> {
             fontSize: 18,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Color(0xFF9B1B1B)),
-            onPressed: _showFilterBottomSheet,
-          ),
-        ],
       ),
       body: Column(
         children: [
