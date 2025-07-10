@@ -365,28 +365,135 @@ const updateOrderStatus = async (req, res) => {
       // Generate invoice number (e.g., INV + orderId)
       const invoiceNumber = `INV${orderId}`;
       
-      // Calculate tax totals from order items
+      // Calculate tax totals and item details for dynamic invoice sections
       let totalCGST = 0;
       let totalSGST = 0;
       let totalIGST = 0;
       let totalTaxableValue = 0;
+      let totalItemsCount = 0;
+      let totalDiscountedItems = 0;
+      let totalSavingsAmount = 0;
+      let subtotalBeforeTax = 0;
 
+      // Process each item for detailed calculations
       orderItems.forEach(item => {
         const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+        const itemMRP = parseFloat(item.PROD_MRP || 0) * parseInt(item.QUANTITY || 0);
         const cgstRate = parseFloat(item.PROD_CGST || 0);
         const sgstRate = parseFloat(item.PROD_SGST || 0);
         const igstRate = parseFloat(item.PROD_IGST || 0);
         
         totalTaxableValue += itemTaxableValue;
+        subtotalBeforeTax += itemTaxableValue;
         totalCGST += (itemTaxableValue * cgstRate) / 100;
         totalSGST += (itemTaxableValue * sgstRate) / 100;
         totalIGST += (itemTaxableValue * igstRate) / 100;
+        
+        // Count items
+        totalItemsCount += parseInt(item.QUANTITY || 0);
+        
+        // Calculate savings (MRP vs SP)
+        if (itemMRP > itemTaxableValue) {
+          totalDiscountedItems += parseInt(item.QUANTITY || 0);
+          totalSavingsAmount += (itemMRP - itemTaxableValue);
+        }
       });
 
       const totalTaxAmount = totalCGST + totalSGST + totalIGST;
       
-      // Generate PDF and QR code
-      const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ order, orderItems, invoiceNumber });
+      // Prepare Purchase Summary data
+      const purchaseSummary = {
+        totalAmount: parseFloat(order.ORDER_TOTAL),
+        itemsCount: totalItemsCount,
+        discountedItemsCount: totalDiscountedItems,
+        totalSavings: totalSavingsAmount.toFixed(2)
+      };
+      
+      // Prepare Payment Details data
+      const paymentDetails = {
+        paymentMethod: order.PAYMENT_METHOD === 'cod' ? 'Cash' : order.PAYMENT_METHOD.toUpperCase(),
+        paymentBrand: order.PAYMENT_METHOD === 'cod' ? 'Cash' : 'Card',
+        amount: parseFloat(order.ORDER_TOTAL).toFixed(2)
+      };
+      
+      // Prepare GST breakdown data grouped by tax rates
+      const gstBreakdown = [];
+      const taxRateGroups = {};
+      
+      // Group items by their tax rates
+      orderItems.forEach(item => {
+        const cgstRate = parseFloat(item.PROD_CGST || 0);
+        const sgstRate = parseFloat(item.PROD_SGST || 0);
+        const igstRate = parseFloat(item.PROD_IGST || 0);
+        const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+        
+        // Create a key for grouping (e.g., "6-6-0" for 6% CGST, 6% SGST, 0% IGST)
+        const rateKey = `${cgstRate}-${sgstRate}-${igstRate}`;
+        
+        if (!taxRateGroups[rateKey]) {
+          taxRateGroups[rateKey] = {
+            cgstRate: cgstRate,
+            sgstRate: sgstRate,
+            igstRate: igstRate,
+            taxableValue: 0,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0
+          };
+        }
+        
+        // Add to the group
+        taxRateGroups[rateKey].taxableValue += itemTaxableValue;
+        taxRateGroups[rateKey].cgstAmount += (itemTaxableValue * cgstRate) / 100;
+        taxRateGroups[rateKey].sgstAmount += (itemTaxableValue * sgstRate) / 100;
+        taxRateGroups[rateKey].igstAmount += (itemTaxableValue * igstRate) / 100;
+      });
+      
+      // Convert grouped data to breakdown array
+      Object.values(taxRateGroups).forEach(group => {
+        // Add CGST row if rate > 0
+        if (group.cgstRate > 0) {
+          gstBreakdown.push({
+            gstType: 'CGST',
+            taxableValue: group.taxableValue.toFixed(2),
+            taxRate: group.cgstRate,
+            taxAmount: group.cgstAmount.toFixed(2)
+          });
+        }
+        
+        // Add SGST row if rate > 0
+        if (group.sgstRate > 0) {
+          gstBreakdown.push({
+            gstType: 'SGST',
+            taxableValue: group.taxableValue.toFixed(2),
+            taxRate: group.sgstRate,
+            taxAmount: group.sgstAmount.toFixed(2)
+          });
+        }
+        
+        // Add IGST row if rate > 0
+        if (group.igstRate > 0) {
+          gstBreakdown.push({
+            gstType: 'IGST',
+            taxableValue: group.taxableValue.toFixed(2),
+            taxRate: group.igstRate,
+            taxAmount: group.igstAmount.toFixed(2)
+          });
+        }
+      });
+      
+      const totalTax = totalTaxAmount.toFixed(2);
+      
+      // Generate PDF with enhanced data
+      const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ 
+        order, 
+        orderItems, 
+        invoiceNumber,
+        purchaseSummary,
+        paymentDetails,
+        gstBreakdown,
+        totalTax
+      });
       // Insert into invoice_master
       const [invoiceResult] = await db.promise().query(
         `INSERT INTO invoice_master (
@@ -714,28 +821,135 @@ const placeOrderForCustomer = async (req, res) => {
     // Generate invoice number
     const invoiceNumber = `INV${orderId}`;
     
-    // Calculate tax totals from order items
+    // Calculate tax totals and item details for dynamic invoice sections
     let totalCGST = 0;
     let totalSGST = 0;
     let totalIGST = 0;
     let totalTaxableValue = 0;
+    let totalItemsCount = 0;
+    let totalDiscountedItems = 0;
+    let totalSavingsAmount = 0;
+    let subtotalBeforeTax = 0;
 
+    // Process each item for detailed calculations
     orderItems.forEach(item => {
       const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+      const itemMRP = parseFloat(item.PROD_MRP || 0) * parseInt(item.QUANTITY || 0);
       const cgstRate = parseFloat(item.PROD_CGST || 0);
       const sgstRate = parseFloat(item.PROD_SGST || 0);
       const igstRate = parseFloat(item.PROD_IGST || 0);
       
       totalTaxableValue += itemTaxableValue;
+      subtotalBeforeTax += itemTaxableValue;
       totalCGST += (itemTaxableValue * cgstRate) / 100;
       totalSGST += (itemTaxableValue * sgstRate) / 100;
       totalIGST += (itemTaxableValue * igstRate) / 100;
+      
+      // Count items
+      totalItemsCount += parseInt(item.QUANTITY || 0);
+      
+      // Calculate savings (MRP vs SP)
+      if (itemMRP > itemTaxableValue) {
+        totalDiscountedItems += parseInt(item.QUANTITY || 0);
+        totalSavingsAmount += (itemMRP - itemTaxableValue);
+      }
     });
 
     const totalTaxAmount = totalCGST + totalSGST + totalIGST;
     
-    // Generate PDF and QR code
-    const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ order, orderItems, invoiceNumber });
+    // Prepare Purchase Summary data
+    const purchaseSummary = {
+      totalAmount: parseFloat(order.ORDER_TOTAL),
+      itemsCount: totalItemsCount,
+      discountedItemsCount: totalDiscountedItems,
+      totalSavings: totalSavingsAmount.toFixed(2)
+    };
+    
+    // Prepare Payment Details data
+    const paymentDetails = {
+      paymentMethod: order.PAYMENT_METHOD === 'cod' ? 'Cash' : order.PAYMENT_METHOD.toUpperCase(),
+      paymentBrand: order.PAYMENT_METHOD === 'cod' ? 'Cash' : 'Card',
+      amount: parseFloat(order.ORDER_TOTAL).toFixed(2)
+    };
+    
+    // Prepare GST breakdown data grouped by tax rates
+    const gstBreakdown = [];
+    const taxRateGroups = {};
+    
+    // Group items by their tax rates
+    orderItems.forEach(item => {
+      const cgstRate = parseFloat(item.PROD_CGST || 0);
+      const sgstRate = parseFloat(item.PROD_SGST || 0);
+      const igstRate = parseFloat(item.PROD_IGST || 0);
+      const itemTaxableValue = parseFloat(item.PROD_SP || 0) * parseInt(item.QUANTITY || 0);
+      
+      // Create a key for grouping (e.g., "6-6-0" for 6% CGST, 6% SGST, 0% IGST)
+      const rateKey = `${cgstRate}-${sgstRate}-${igstRate}`;
+      
+      if (!taxRateGroups[rateKey]) {
+        taxRateGroups[rateKey] = {
+          cgstRate: cgstRate,
+          sgstRate: sgstRate,
+          igstRate: igstRate,
+          taxableValue: 0,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 0
+        };
+      }
+      
+      // Add to the group
+      taxRateGroups[rateKey].taxableValue += itemTaxableValue;
+      taxRateGroups[rateKey].cgstAmount += (itemTaxableValue * cgstRate) / 100;
+      taxRateGroups[rateKey].sgstAmount += (itemTaxableValue * sgstRate) / 100;
+      taxRateGroups[rateKey].igstAmount += (itemTaxableValue * igstRate) / 100;
+    });
+    
+    // Convert grouped data to breakdown array
+    Object.values(taxRateGroups).forEach(group => {
+      // Add CGST row if rate > 0
+      if (group.cgstRate > 0) {
+        gstBreakdown.push({
+          gstType: 'CGST',
+          taxableValue: group.taxableValue.toFixed(2),
+          taxRate: group.cgstRate,
+          taxAmount: group.cgstAmount.toFixed(2)
+        });
+      }
+      
+      // Add SGST row if rate > 0
+      if (group.sgstRate > 0) {
+        gstBreakdown.push({
+          gstType: 'SGST',
+          taxableValue: group.taxableValue.toFixed(2),
+          taxRate: group.sgstRate,
+          taxAmount: group.sgstAmount.toFixed(2)
+        });
+      }
+      
+      // Add IGST row if rate > 0
+      if (group.igstRate > 0) {
+        gstBreakdown.push({
+          gstType: 'IGST',
+          taxableValue: group.taxableValue.toFixed(2),
+          taxRate: group.igstRate,
+          taxAmount: group.igstAmount.toFixed(2)
+        });
+      }
+    });
+    
+    const totalTax = totalTaxAmount.toFixed(2);
+    
+    // Generate PDF with enhanced data
+    const invoicePath = await require('../utils/invoiceGenerator').generateInvoicePDF({ 
+      order, 
+      orderItems, 
+      invoiceNumber,
+      purchaseSummary,
+      paymentDetails,
+      gstBreakdown,
+      totalTax
+    });
     // Insert into invoice_master
     const [invoiceResult] = await connection.query(
       `INSERT INTO invoice_master (

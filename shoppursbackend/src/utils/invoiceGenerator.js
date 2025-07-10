@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { pool: db } = require('../config/database');
 
-async function generateInvoicePDF({ order, orderItems, invoiceNumber }) {
+async function generateInvoicePDF({ order, orderItems, invoiceNumber, purchaseSummary, paymentDetails, gstBreakdown, totalTax }) {
   try {
     // Fetch app settings from database
     const [appSettings] = await db.promise().query(`
@@ -59,9 +59,22 @@ async function generateInvoicePDF({ order, orderItems, invoiceNumber }) {
     let y = doc.y;
     doc.fontSize(12).fillColor('#1565c0').text('Purchase Details', leftMargin, y);
     y += 18;
-    doc.fontSize(9).fillColor('black').text(`Transaction id: ${order.ORDER_NUMBER || ''}`, leftMargin, y);
+    doc.fontSize(9).fillColor('black').text(`Order id: ${order.ORDER_NUMBER || ''}`, leftMargin, y);
     y += 13;
-    doc.text(`Date: ${(order.CREATED_DATE || '').toISOString ? order.CREATED_DATE.toISOString().slice(0, 19).replace('T', ' ') : order.CREATED_DATE}`, leftMargin, y);
+    
+    // Format date properly
+    let formattedDate = '';
+    if (order.CREATED_DATE) {
+      const date = new Date(order.CREATED_DATE);
+      if (!isNaN(date.getTime())) {
+        formattedDate = date.toISOString().slice(0, 19).replace('T', ' ');
+      } else {
+        formattedDate = order.CREATED_DATE.toString();
+      }
+    } else {
+      formattedDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    }
+    doc.text(`Date: ${formattedDate}`, leftMargin, y);
     y += 18;
 
     // --- Summary and Payment Details ---
@@ -74,26 +87,19 @@ async function generateInvoicePDF({ order, orderItems, invoiceNumber }) {
     doc.rect(leftMargin, y, summaryBoxWidth, 80).fill('#e3f2fd').stroke();
     doc.rect(leftMargin + summaryBoxWidth + boxGap, y, paymentBoxWidth, 80).fill('#f5f5f5').stroke();
     
-    // Purchase Summary
+    // Purchase Summary - Dynamic Data
     doc.fillColor('#1565c0').fontSize(11).text('Purchase Summary', leftMargin + 5, y + 8);
-    doc.fillColor('black').fontSize(9).text(`Total Amount: ${settings.default_currency}${order.ORDER_TOTAL || ''}`, leftMargin + 5, y + 25);
-    doc.text(`Items: ${orderItems.length}`, leftMargin + 5, y + 40);
-    doc.text(`Discounted Items: 0`, leftMargin + 5, y + 55);
+    doc.fillColor('black').fontSize(9).text(`Total Amount: ${settings.default_currency}${purchaseSummary?.totalAmount || order.ORDER_TOTAL || ''}`, leftMargin + 5, y + 25);
+    doc.text(`Items: ${purchaseSummary?.itemsCount || orderItems.length}`, leftMargin + 5, y + 40);
     
-    // Payment Details
+    // Payment Details - Dynamic Data
     doc.fillColor('#1565c0').fontSize(11).text('Payment Details', leftMargin + summaryBoxWidth + boxGap + 5, y + 8);
+    doc.fillColor('black').fontSize(9);
     
-    // Handle payment terms text - truncate if too long
-    let paymentText = settings.payment_terms_text || 'Payment Method: Cash';
-    if (paymentText.length > 25) {
-      paymentText = paymentText.substring(0, 22) + '...';
-    }
-    
-    doc.fillColor('black').fontSize(9).text(paymentText, leftMargin + summaryBoxWidth + boxGap + 5, y + 25, {
-      width: paymentBoxWidth - 10,
-      lineGap: 2
-    });
-    doc.text(`Amount: ${settings.default_currency}${order.ORDER_TOTAL || ''}`, leftMargin + summaryBoxWidth + boxGap + 5, y + 45);
+    // Payment Method only
+    const paymentMethod = paymentDetails?.paymentMethod || 'Cash';
+    doc.text(`Payment Method: ${paymentMethod}`, leftMargin + summaryBoxWidth + boxGap + 5, y + 25);
+    doc.text(`Amount: ${settings.default_currency}${paymentDetails?.amount || order.ORDER_TOTAL || ''}`, leftMargin + summaryBoxWidth + boxGap + 5, y + 40);
     y += 90;
 
     // --- Item Table Header ---
@@ -166,6 +172,45 @@ async function generateInvoicePDF({ order, orderItems, invoiceNumber }) {
     doc.text('Gross Total', col6, y);
     doc.text(`${settings.default_currency}${parseFloat(order.ORDER_TOTAL || 0).toFixed(2)}`, col8, y);
     y += 25;
+
+    // --- GST Breakdown Section ---
+    if (gstBreakdown && gstBreakdown.length > 0) {
+      doc.fontSize(12).fillColor('#1565c0').text('GST', leftMargin, y);
+      y += 18;
+      
+      // GST Table Headers
+      const gstCol1 = leftMargin;
+      const gstCol2 = leftMargin + contentWidth * 0.25;
+      const gstCol3 = leftMargin + contentWidth * 0.55;
+      const gstCol4 = leftMargin + contentWidth * 0.75;
+      
+      doc.fontSize(9).fillColor('black');
+      doc.text('GST', gstCol1, y);
+      doc.text('Taxable Value', gstCol2, y);
+      doc.text('Tax(%)', gstCol3, y);
+      doc.text('Tax Amt', gstCol4, y);
+      y += 15;
+      doc.moveTo(leftMargin, y).lineTo(pageWidth - rightMargin, y).stroke();
+      y += 8;
+      
+      // GST Table Rows
+      gstBreakdown.forEach(gst => {
+        doc.fontSize(9).fillColor('black');
+        doc.text(gst.gstType, gstCol1, y);
+        doc.text(gst.taxableValue, gstCol2, y);
+        doc.text(gst.taxRate, gstCol3, y);
+        doc.text(gst.taxAmount, gstCol4, y);
+        y += 15;
+      });
+      
+      // Total Tax
+      doc.moveTo(leftMargin, y).lineTo(pageWidth - rightMargin, y).stroke();
+      y += 8;
+      doc.fontSize(9).fillColor('black');
+      doc.text('Total Tax', gstCol3, y);
+      doc.text(totalTax || '0.00', gstCol4, y);
+      y += 25;
+    }
 
     // --- Customer and Store Details ---
     doc.fontSize(11).fillColor('#1565c0').text('CUSTOMER DETAILS', leftMargin, y);
