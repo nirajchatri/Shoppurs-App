@@ -494,7 +494,7 @@ class _CustomerLeadsPageState extends State<CustomerLeadsPage> {
                     style: TextStyle(color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: const Color.fromARGB(255, 3, 169, 245),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -517,7 +517,7 @@ class _CustomerLeadsPageState extends State<CustomerLeadsPage> {
                     style: TextStyle(color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: const Color.fromARGB(255, 245, 179, 74),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
