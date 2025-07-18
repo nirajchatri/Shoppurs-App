@@ -284,7 +284,7 @@ class _PaymentPageState extends State<PaymentPage> {
     final user = _currentUser;
     
     var options = {
-      'key': 'rzp_test_TXLp8WEhaRbLG8', // Replace with your Razorpay Key ID
+      'key': 'rzp_live_X3RmU39D7glHmZ', // Replace with your Razorpay Key ID
       'amount': orderData['amount'],
       'name': 'Shoppurs Shop',
       'description': 'Online Shopping Payment',

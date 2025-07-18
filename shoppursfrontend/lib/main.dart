@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_core/firebase_core.dart';  // Temporarily disabled for iOS build
+// import 'package:firebase_messaging/firebase_messaging.dart';  // Temporarily disabled for iOS build
 import 'features/onboarding/onboarding_page.dart';
 import 'features/auth/signup_page.dart';
 import 'features/auth/login_page.dart';
@@ -44,22 +44,22 @@ import 'services/connectivity_service.dart';
 import 'services/error_handler.dart';
 import 'services/notification_service.dart';
 
-// Background message handler (must be top-level function)
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('🔥 Background Message: ${message.notification?.title}');
-  print('🔥 Background Message Body: ${message.notification?.body}');
-  print('🔥 Background Message Data: ${message.data}');
-}
+// Background message handler (must be top-level function) - Temporarily disabled for iOS build
+// @pragma('vm:entry-point')
+// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+//   print('🔥 Background Message: ${message.notification?.title}');
+//   print('🔥 Background Message Body: ${message.notification?.body}');
+//   print('🔥 Background Message Data: ${message.data}');
+// }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp();
+  // Initialize Firebase - Temporarily disabled for iOS build
+  // await Firebase.initializeApp();
   
-  // Initialize Firebase Messaging background handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Initialize Firebase Messaging background handler - Temporarily disabled for iOS build
+  // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   
   // Initialize HTTP client for mobile
   HttpClient.configureClient();
@@ -78,13 +78,13 @@ void main() async {
     print('Connectivity check failed: $e');
   }
   
-  // Initialize Firebase Cloud Messaging
-  try {
-    await NotificationService.initialize();
-    print('🔥 Firebase Messaging initialized successfully');
-  } catch (e) {
-    print('🔥 Firebase Messaging initialization failed: $e');
-  }
+  // Initialize Firebase Cloud Messaging - Temporarily disabled for iOS build
+  // try {
+  //   await NotificationService.initialize();
+  //   print('🔥 Firebase Messaging initialized successfully');
+  // } catch (e) {
+  //   print('🔥 Firebase Messaging initialization failed: $e');
+  // }
   
   runApp(const ShoppursShopApp());
 }

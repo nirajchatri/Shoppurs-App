@@ -17,7 +17,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../services/brand_service.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../../services/advertising_service.dart';
-import 'package:mobile_scanner/mobile_scanner.dart' hide Address;
+import '../../widgets/barcode_scanner_widget.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -25,6 +25,7 @@ import '../../config/api_config.dart';
 import '../../widgets/common_bottom_navbar.dart';
 import '../../services/notification_service.dart';
 import 'package:flutter/services.dart';
+import '../../widgets/qr_barcode_scanner_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -1514,31 +1515,80 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openBarcodeScanner() async {
-    // Check camera permission
+    try {
+      // Check camera permission with more detailed handling
     final status = await Permission.camera.status;
-    if (!status.isGranted) {
+      if (status.isDenied) {
       final result = await Permission.camera.request();
-      if (!result.isGranted) {
+        if (result.isDenied) {
+          if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Camera permission is required for barcode scanning'),
             backgroundColor: Colors.red,
           ),
         );
+          }
         return;
       }
     }
-
-    // Navigate to barcode scanner
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Camera Permission Required'),
+                content: const Text(
+                  'Camera permission is permanently denied. Please enable it in your device settings to use the barcode scanner.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      openAppSettings();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9B1B1B),
+                    ),
+                    child: const Text(
+                      'Open Settings',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+        return;
+      }
+      // Navigate to new QR/barcode scanner
+      if (mounted) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BarcodeScannerPage(
-          onBarcodeScanned: _getProductByBarcode,
+            builder: (context) => QrBarcodeScannerPage(
+              onScanned: (barcode) => _getProductByBarcode(barcode),
           title: 'Scan Product Barcode',
         ),
       ),
     );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening scanner:  [${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _getProductByBarcode(String barcode) async {
@@ -2247,283 +2297,4 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class BarcodeScannerPage extends StatefulWidget {
-  final Future<void> Function(String) onBarcodeScanned;
-  final String title;
-  
-  const BarcodeScannerPage({
-    Key? key,
-    required this.onBarcodeScanned,
-    this.title = 'Scan Barcode',
-  }) : super(key: key);
-
-  @override
-  _BarcodeScannerPageState createState() => _BarcodeScannerPageState();
-}
-
-class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
-  MobileScannerController cameraController = MobileScannerController();
-  bool isProcessing = false;
-
-  @override
-  void dispose() {
-    cameraController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          widget.title,
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.torchState,
-              builder: (context, state, child) {
-                switch (state) {
-                  case TorchState.off:
-                    return const Icon(Icons.flash_off, color: Colors.white);
-                  case TorchState.on:
-                    return const Icon(Icons.flash_on, color: Colors.yellow);
-                }
-              },
-            ),
-            onPressed: () => cameraController.toggleTorch(),
-          ),
-          IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: cameraController.cameraFacingState,
-              builder: (context, state, child) {
-                return const Icon(Icons.camera_front, color: Colors.white);
-              },
-            ),
-            onPressed: () => cameraController.switchCamera(),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: cameraController,
-            onDetect: (capture) async {
-              if (!isProcessing) {
-                final List<Barcode> barcodes = capture.barcodes;
-                if (barcodes.isNotEmpty) {
-                  final barcode = barcodes.first;
-                  if (barcode.rawValue != null) {
-                    setState(() {
-                      isProcessing = true;
-                    });
-                    
-                    try {
-                      print('Barcode detected: ${barcode.rawValue!}');
-                      
-                      // Close the scanner first
-                      Navigator.pop(context);
-                      
-                      // Then call the callback function
-                      await widget.onBarcodeScanned(barcode.rawValue!);
-                    } catch (e) {
-                      print('Error processing barcode: $e');
-                      // Reset processing state on error
-                      if (mounted) {
-                        setState(() {
-                          isProcessing = false;
-                        });
-                      }
-                    }
-                  }
-                }
-              }
-            },
-          ),
-          // Overlay with scanning area
-          Container(
-            decoration: ShapeDecoration(
-              shape: ScannerOverlayShape(
-                borderColor: const Color(0xFF9B1B1B),
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 4,
-                cutOutSize: 250,
-              ),
-            ),
-          ),
-          // Instructions
-          Positioned(
-            bottom: 100,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                isProcessing 
-                    ? 'Processing...' 
-                    : 'Place the barcode inside the frame to scan',
-                style: TextStyle(
-                  color: isProcessing ? Colors.yellow : Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ScannerOverlayShape extends ShapeBorder {
-  const ScannerOverlayShape({
-    this.borderColor = Colors.red,
-    this.borderWidth = 3.0,
-    this.overlayColor = const Color.fromRGBO(0, 0, 0, 80),
-    this.borderRadius = 0,
-    this.borderLength = 40,
-    double? cutOutSize,
-    double? cutOutWidth,
-    double? cutOutHeight,
-  })  : cutOutWidth = cutOutWidth ?? cutOutSize ?? 250,
-        cutOutHeight = cutOutHeight ?? cutOutSize ?? 250;
-
-  final Color borderColor;
-  final double borderWidth;
-  final Color overlayColor;
-  final double borderRadius;
-  final double borderLength;
-  final double cutOutWidth;
-  final double cutOutHeight;
-
-  @override
-  EdgeInsetsGeometry get dimensions => const EdgeInsets.all(10);
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
-    return Path()
-      ..fillType = PathFillType.evenOdd
-      ..addPath(getOuterPath(rect), Offset.zero);
-  }
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
-    Path getLeftTopPath(Rect rect) {
-      return Path()
-        ..moveTo(rect.left, rect.bottom)
-        ..lineTo(rect.left, rect.top + borderRadius)
-        ..quadraticBezierTo(rect.left, rect.top, rect.left + borderRadius, rect.top)
-        ..lineTo(rect.right, rect.top);
-    }
-
-    return getLeftTopPath(rect)
-      ..lineTo(rect.right, rect.bottom)
-      ..lineTo(rect.left, rect.bottom)
-      ..lineTo(rect.left, rect.top);
-  }
-
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    final width = rect.width;
-    final borderWidthSize = width / 2;
-    final height = rect.height;
-    final borderHeightSize = height / 2;
-    final cutOutWidth =
-        this.cutOutWidth < width ? this.cutOutWidth : width - borderWidth;
-    final cutOutHeight =
-        this.cutOutHeight < height ? this.cutOutHeight : height - borderWidth;
-
-    final backgroundPaint = Paint()
-      ..color = overlayColor
-      ..style = PaintingStyle.fill;
-
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth;
-
-    final cutOutRect = Rect.fromLTWH(
-      rect.left + (width - cutOutWidth) / 2 + borderWidth,
-      rect.top + (height - cutOutHeight) / 2 + borderWidth,
-      cutOutWidth - borderWidth * 2,
-      cutOutHeight - borderWidth * 2,
-    );
-
-    canvas
-      ..drawPath(
-          Path.combine(
-            PathOperation.difference,
-            Path()..addRect(rect),
-            Path()
-              ..addRRect(RRect.fromRectAndRadius(
-                  cutOutRect, Radius.circular(borderRadius)))
-              ..close(),
-          ),
-          backgroundPaint)
-      ..drawRRect(
-          RRect.fromRectAndRadius(cutOutRect, Radius.circular(borderRadius)),
-          borderPaint);
-
-    // Draw corner borders
-    final cornerPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth;
-
-    // Top left corner
-    canvas.drawPath(
-        Path()
-          ..moveTo(cutOutRect.left - borderWidth, cutOutRect.top)
-          ..lineTo(cutOutRect.left - borderWidth, cutOutRect.top - borderLength)
-          ..moveTo(cutOutRect.left, cutOutRect.top - borderWidth)
-          ..lineTo(cutOutRect.left + borderLength, cutOutRect.top - borderWidth),
-        cornerPaint);
-
-    // Top right corner
-    canvas.drawPath(
-        Path()
-          ..moveTo(cutOutRect.right + borderWidth, cutOutRect.top)
-          ..lineTo(cutOutRect.right + borderWidth, cutOutRect.top - borderLength)
-          ..moveTo(cutOutRect.right, cutOutRect.top - borderWidth)
-          ..lineTo(cutOutRect.right - borderLength, cutOutRect.top - borderWidth),
-        cornerPaint);
-
-    // Bottom left corner
-    canvas.drawPath(
-        Path()
-          ..moveTo(cutOutRect.left - borderWidth, cutOutRect.bottom)
-          ..lineTo(cutOutRect.left - borderWidth, cutOutRect.bottom + borderLength)
-          ..moveTo(cutOutRect.left, cutOutRect.bottom + borderWidth)
-          ..lineTo(cutOutRect.left + borderLength, cutOutRect.bottom + borderWidth),
-        cornerPaint);
-
-    // Bottom right corner
-    canvas.drawPath(
-        Path()
-          ..moveTo(cutOutRect.right + borderWidth, cutOutRect.bottom)
-          ..lineTo(cutOutRect.right + borderWidth, cutOutRect.bottom + borderLength)
-          ..moveTo(cutOutRect.right, cutOutRect.bottom + borderWidth)
-          ..lineTo(cutOutRect.right - borderLength, cutOutRect.bottom + borderWidth),
-        cornerPaint);
-  }
-
-  @override
-  ShapeBorder scale(double t) {
-    return ScannerOverlayShape(
-      borderColor: borderColor,
-      borderWidth: borderWidth,
-      overlayColor: overlayColor,
-    );
-  }
-} 
+ 
