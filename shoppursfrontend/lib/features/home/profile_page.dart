@@ -7,6 +7,7 @@ import '../help/help_support_page.dart';
 import '../../config/api_config.dart';
 import '../common/customer_management_hub.dart';
 import '../../services/user_profile_service.dart';
+import '../../services/http_client.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -109,6 +110,77 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
           '/',
           (route) => false,
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    if (_user == null || _user!.role.toLowerCase() != 'customer') return;
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This action is permanent and will delete your account. Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Color(0xFF9B1B1B)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final token = await _authService.getToken();
+      final phone = _user!.mobile.toString();
+      final result = await HttpClient.post(
+        '/api/auth/delete-account',
+        body: {'phone': phone},
+        token: token,
+        context: context,
+      );
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (result['success'] == true) {
+        await _authService.logout();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Account deleted successfully')),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Failed to delete account')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error deleting account')),
         );
       }
     }
@@ -327,6 +399,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           icon: Icons.location_on_outlined,
                           label: 'My Addresses',
                           onTap: () => Navigator.pushNamed(context, '/address-list'),
+                        ),
+                        _ProfileOption(
+                          icon: Icons.delete_forever_outlined,
+                          label: 'Delete Account',
+                          color: const Color(0xFF9B1B1B),
+                          onTap: _handleDeleteAccount,
                         ),
                       ],
                       if (_user?.role.toLowerCase() == 'admin') ...[
