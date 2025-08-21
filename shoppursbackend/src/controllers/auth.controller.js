@@ -160,10 +160,10 @@ const login = async (req, res) => {
 
     // Find user
     const [users] = await db.promise().query(
-      'SELECT * FROM user_info WHERE MOBILE = ?' ,
+      'SELECT * FROM user_info WHERE MOBILE = ? AND IS_DELETE = 0' ,
       [phone]
     );
-
+    
     if (users.length === 0) {
       return res.status(401).json({
         success: false,
@@ -811,6 +811,48 @@ const resendOtp = async (req, res) => {
   }
 };
 
+const deleteAccount = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    const [existingUser] = await db.promise().query(
+      'SELECT USER_ID FROM user_info WHERE MOBILE = ? AND IS_DELETE = 0',
+      [phone]
+    );
+
+    if (existingUser.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active user found with this phone number'
+      });
+    }
+
+    await db.promise().query(
+      'UPDATE user_info SET IS_DELETE = 1 WHERE MOBILE = ?',
+      [phone]
+    );
+
+    return res.json({
+      success: true,
+      message: 'User account deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error deleting user account',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
@@ -821,5 +863,6 @@ module.exports = {
   requestPasswordReset,
   confirmOtpForPassword,
   resetPasswordWithPhone,
+  deleteAccount,
   resendOtp
 }; 

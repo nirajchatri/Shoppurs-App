@@ -10,7 +10,8 @@ const {
   requestPasswordReset,
   confirmOtpForPassword,
   resetPasswordWithPhone,
-  resendOtp
+  resendOtp,
+  deleteAccount
 } = require('../controllers/auth.controller');
 
 router.post('/signup', signup);
@@ -27,5 +28,8 @@ router.post('/reset-password-with-phone', resetPasswordWithPhone);
 
 // Resend OTP API
 router.post('/resend-otp', resendOtp);
+
+// Delete user account (soft delete)
+router.post('/delete-account', deleteAccount);
 
 module.exports = router; 
